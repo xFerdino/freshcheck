@@ -1,0 +1,38 @@
+{
+  "summary": "FreshCheck tested end-to-end with 3 real runs: 1 API run plus 2 UI runs (desktop company-leadership with date 2023-03-01, and mobile 390px tech-versions). Everything in the request works. SSE events arrive in the right order (status, claims, claim_start/claim_result, done) and counts and overall_score are correct. Short/empty/missing/oversized answers return 422. The 3 example chips fill the textarea. Live progress shows the 'searching'/'queued' state for each claim. Results show the gauge, colored highlights, cards with verdict, score, reason and _blank source links, and corrected-fact boxes on outdated claims only. Clicking a highlight scrolls its card into view and flashes it. Reset clears text, date and results. Mobile has no horizontal overflow. No console errors.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/check (run_check/verify_claim)", "issue": "Hang risk: if verify_claim raises an exception it doesn't catch (e.g. int(v.get('freshness_score')) gets an LLM value like '85%' and raises ValueError, or a Tavily result is missing a field), that worker never puts a claim_result on the queue, so the `while remaining` loop waits forever and the stream never sends done. Fix: wrap the worker body in try/except and always put an uncertain() result. Also parse the score defensively."},
+      {"endpoint": "POST /api/check", "issue": "Worker tasks are not cancelled when the client disconnects or aborts, so Tavily and LLM calls keep running and use credits. Cancel the tasks in a finally block."},
+      {"endpoint": "verify_claim", "issue": "updated_fact can contain details the cited evidence doesn't support. Mobile run, claim c1 (Python 3.11): it said 'Python 3.15.2 was the latest stable release as of October 2026 ... 3.14.0 had been superseded by 3.14.10'. Not checked against the evidence. Consider telling the prompt to state only facts that appear in the evidence."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "ScoreGauge", "issue": "While verification is running, the gauge shows '–' with the label 'No claims' even though the claims are listed. The label should say something like 'Checking…' while summary is null and the check is running.", "selector": "[data-testid='gauge-label']", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "InputPanel", "issues": ["input-date is a native <input type='date'> (browser default picker) rather than the shadcn Calendar/Popover", "btn-reset is disabled while running, so the abortRef cancel path can't be reached. Consider letting the user cancel a running check."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_freshcheck_api.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Wrap the run_check worker in try/except so that every claim always produces a claim_result (prevents an endless stream)",
+    "Cancel worker tasks when the client disconnects",
+    "Gauge label during the running state: replace 'No claims' with a loading label",
+    "Optional: shadcn date picker; allow cancelling a running check; stop updated_fact from going beyond the evidence"
+  ],
+  "critical_code_review_comments": [
+    "server.py run_check: the queue loop depends on every worker succeeding, so one exception the worker doesn't catch hangs the SSE stream forever",
+    "server.py verify_claim: int(v.get('freshness_score', 50) or 0) can raise on non-numeric LLM output and is not caught",
+    "ClaimCard Sources uses key={s.url}; duplicate URLs from Tavily would trigger React key warnings. Use the index together with the URL as the key."
+  ],
+  "updated_files": ["/app/backend/tests/test_freshcheck_api.py"],
+  "success_rate": {"backend": "100% (6/6)", "frontend": "100% of requested flows"},
+  "seed_data_creation": "None (no DB)",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "No auth and no DB. A full check took about 10-40s. pytest.ini uses xdist; run with: export REACT_APP_BACKEND_URL=... && pytest tests/test_freshcheck_api.py. The 'company-leadership' example reliably produces 3 Outdated claims, useful for testing corrected-fact boxes."
+}

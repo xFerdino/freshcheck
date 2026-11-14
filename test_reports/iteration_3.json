@@ -1,0 +1,31 @@
+{
+  "summary": "Iteration 3 retest of the 4 fixes plus a UI regression check. Used 2 real full product-prices runs (1 backend, 1 UI) and real /api/rewrite calls. Fix 1 PASS: scores match the verdicts (Outdated 6/8/6, Uncertain 40/45/55, Current 96), and the gauge now reads 30 or 28 'Stale' (was 61). Fix 2 PASS: for the PS5 claim, sources[0] is the 2026-03-27 PlayStation price-change post. btn-copy-fix-c2 and corrected source [1] both point to it. Netflix sources[0] is help.netflix.com 'Plans and Pricing'. Fix 3 PASS: rewrites stay grammatical with citations before the final period, e.g. '...$599.99 effective April 2, 2026 [1][2], and the base iPhone 15 starts at $799. ...$19.99 per month in the United States [3][4].' Fix 4 PASS: an intercepted 200 SSE stream with only meta + claims shows error-state ('The connection closed before the check finished. Please try again.'), a toast, and Try again. Regression PASS: route-badge 'Direct', gauge and counts, 4 claim cards, 2 copy-fix buttons with source text in the clipboard, Copy corrected answer (toast, Sources list in the clipboard, button becomes 'Regenerate & copy'), and Run details (header counts calls and tokens; the toggle shows rows; a rewrite row is added after Copy corrected). No console errors.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/check (verdict, LLM-dependent)", "issue": "Verdicts vary between runs. 'ChatGPT Plus costs $20' was Current 96 in one run and Uncertain 55 in the next (only third-party sources were found). iPhone 15 $799 is Uncertain because the evidence is only from 2023. This is not a code bug; it's an observation."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Results after a truncated stream", "issue": "When the stream ends early, the error-state appears correctly, but the partial results stay below it: the gauge shows '–' / 'No claims' while a pending, pulsing highlight remains for the claim that was received. Consider hiding the results overview or marking pending claims as failed on error.", "selector": "[data-testid='gauge-overall-score']", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_freshcheck_iter3.py", "/app/test_reports/pytest/pytest_iter3.xml"],
+  "action_items": [
+    "Optional: on a stream error, clear or mark the partial 'Checking' state (gauge 'No claims' plus a pending highlight)"
+  ],
+  "critical_code_review_comments": [
+    "verify_claim score clamp is correct. Note: if the model returns verdict 'Current' with a low score, it is forced up to >=70, and the opposite for Outdated. Fine, given the verdict is authoritative.",
+    "If the LLM returns no valid source_ids, the code falls back to all results in Tavily order, so a stale source can still come first in that case. Possibly sort the fallback by published_date (often None, though).",
+    "freshcheck.js streamCheck: the 'finished' flag is set before the data check, so a 'done' event with malformed data would still count. Edge case only."
+  ],
+  "updated_files": ["/app/backend/tests/test_freshcheck_iter3.py (new)"],
+  "success_rate": {"backend": "100% (2/2 new tests)", "frontend": "100% of requested flows"},
+  "seed_data_creation": "None (no DB)",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "No auth, no DB. Real product-prices check takes about 6-15s. Testids: corrected-answer-text, corrected-source-{n}, run-log-row-{i}, card-claim-cN, link-source-cN-k, btn-copy-fix-cN, gauge-overall-score (gauge-score-value is SVG; use inner_text on gauge-overall-score). Run with: export REACT_APP_BACKEND_URL=... && pytest tests/test_freshcheck_iter3.py -n 0."
+}

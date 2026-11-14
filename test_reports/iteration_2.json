@@ -1,0 +1,39 @@
+{
+  "summary": "Iteration 2 (Bifrost gateway on the Direct fallback, rewrite, export, run details, empty/error states, cancel) tested end to end. Backend: 10 of 10 new pytest checks pass. /api/config returns route=direct with gpt-5.4-mini / gpt-5.4. The SSE stream sends meta first, then status. llm_call logs cover extract (EXTRACT_MODEL), verdict (VERDICT_MODEL, ref cN) and search (tavily, results count). All LLM logs show route=direct, status ok, and token counts and latency above zero. /api/rewrite returns [n] markers, at most 2 sources per outdated claim, n numbered 1..k, and a log with stage=rewrite. With no Outdated claims it returns changed=false with the original text. Validation returns 422. Frontend: 1 real full run (product-prices, desktop) plus mocked runs. Verified: tagline, empty state, 'Direct' route badge with a model tooltip, the Reset button labelled Cancel while running, and 2 Outdated cards that each have btn-copy-fix (clipboard text includes the source and a toast appears). Copy corrected answer shows the corrected text with [1]..[4] and 4 corrected-source links, a toast, and the clipboard holds the text plus a Sources list; the button then reads 'Regenerate & copy'. Run details: the header shows the count of LLM calls and tokens, the toggle shows 9 rows, and after the rewrite there are 6 LLM calls with a final rewrite row. Copy Markdown shows a toast and gives a complete report. Export .md downloads freshcheck-report.md. Error states work for an intercepted 500 with JSON detail, a plain-text 500 ('Request failed (500)') and an in-stream SSE error event. Retry works. Cancel during a real run clears everything and restores the empty state, and no results arrive later. Mobile 390px: no horizontal overflow, and the run-details table scrolls inside its own container. No console errors.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/check (verify_claim)", "issue": "freshness_score does not always match the verdict. Real run: 'PS5 Digital Edition is priced at $399' came back Outdated with a score of 99 (the model scored its confidence, not freshness). This raises the overall gauge (61 'Partly stale' when 2 of 4 claims are outdated). Clamp the score on the server for each verdict, e.g. Outdated min(score, 30) and Uncertain within 35-65, or let the backend set the score."},
+      {"endpoint": "POST /api/check / /api/rewrite (source ordering)", "issue": "The first cited source can be the stale one. PS5 claim: sources[0] is the 2020 launch blog post ($399). The card's 'Copy fix with citation' and corrected-answer citation [1] point to that post instead of the 2026 price-change post that supports the new fact. Ask the LLM for the supporting source first, or sort by published_date descending."},
+      {"endpoint": "POST /api/rewrite", "issue": "The rewrite can break grammar when a quote is part of a sentence. Output: '...$599.99 effective April 2, 2026.[1][2] and the base iPhone 15 starts at $799.' (a period followed by a lowercase 'and'). Tighten the prompt: keep the sentence structure intact and put the updated fact inline."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "streamCheck", "issue": "If the stream closes without a done or error event (network drop or proxy timeout), the UI stops running but leaves the cards in a 'Checking' state with no error shown. Throw an error when the stream ends without done or error.", "selector": "[data-testid='error-state']", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "InputPanel", "issues": ["input-date is still a native <input type='date'>, not the shadcn Calendar (carried over from iteration 1)"]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_freshcheck_iter2.py", "/app/backend/tests/test_freshcheck_api.py", "/app/test_reports/pytest/pytest_iter2.xml"],
+  "action_items": [
+    "Make freshness_score consistent with the verdict on the server (Outdated <= 30, Uncertain 35-65)",
+    "Choose and order cited sources so the evidence supporting the updated fact comes first",
+    "Improve the rewrite prompt to keep sentences grammatical when only part of a sentence is replaced",
+    "Optional: show an error when the SSE stream ends without done; use the shadcn date picker"
+  ],
+  "critical_code_review_comments": [
+    "docker-compose.yml defaults EXTRACT_MODEL/VERDICT_MODEL to openai/gpt-4o-mini / gpt-4o while backend/.env uses gpt-5.4-mini / gpt-5.4. Document this or align them.",
+    "llm_gateway._call_bifrost always sends response_format=json_object. Some providers behind Bifrost (e.g. Anthropic) may reject it. parse_json already handles plain text, so consider making it optional.",
+    "llm_gateway reads BIFROST_BASE_URL at import time, so switching route needs a backend restart. This is fine, but document it.",
+    "Cancelling a check doesn't stop LLM calls that are already in flight (the backend log showed a verdict call about 2s after the abort). This is acceptable; tasks are cancelled in the finally block."
+  ],
+  "updated_files": ["/app/backend/tests/test_freshcheck_iter2.py (new)", "/app/backend/tests/test_freshcheck_api.py (updated: root no longer returns 'model'; first SSE event is now 'meta')"],
+  "success_rate": {"backend": "100% (10/10)", "frontend": "100% of requested flows"},
+  "seed_data_creation": "None (no DB)",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "No auth, no DB. BIFROST_BASE_URL is empty, so route=direct. A full check took about 10-15s. pytest.ini uses xdist (don't pass -p no:xdist). Run with: export REACT_APP_BACKEND_URL=... && pytest tests/test_freshcheck_iter2.py. The textarea testid is input-answer-textarea. To test the UI cheaply, mock /api/check with page.route and a text/event-stream body. The product-prices example gives 2 Outdated claims (PS5, Netflix)."
+}

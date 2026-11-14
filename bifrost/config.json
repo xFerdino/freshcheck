@@ -1,0 +1,18 @@
+{
+  "$schema": "https://www.getbifrost.ai/schema",
+  "providers": {
+    "openai": {
+      "keys": [
+        {
+          "name": "openai-primary",
+          "value": "env.OPENAI_API_KEY",
+          "models": ["gpt-4o-mini", "gpt-4o", "gpt-5.4-mini", "gpt-5.4"],
+          "weight": 1.0
+        }
+      ]
+    }
+  },
+  "config_store": {
+    "enabled": false
+  }
+}

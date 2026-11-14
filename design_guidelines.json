@@ -1,0 +1,133 @@
+{
+  "project_name": "FreshCheck",
+  "app_type": "single-page tool (saas_app)",
+  "theme": "Dark Mode Minimalist / Tactical Precision",
+  "design_archetype": "The Performance Pro / Deep Dark Analytics",
+  "technology_stack": {
+    "frontend": "React.js (JSX files)",
+    "styling": "Tailwind CSS + Lucide Icons + Framer Motion",
+    "backend": "FastAPI + Tavily Search API + LLM Claim Extraction & Verification",
+    "components": "Shadcn UI primitives adapted for Dark Mode"
+  },
+  "color_palette": {
+    "background_base": "#0B0F17",
+    "background_surface": "#111827",
+    "background_card": "#1F2937",
+    "border_subtle": "rgba(255, 255, 255, 0.08)",
+    "border_active": "rgba(99, 102, 241, 0.4)",
+    "text_primary": "#F9FAFB",
+    "text_secondary": "#9CA3AF",
+    "text_muted": "#6B7280",
+    "verdict_current": {
+      "primary": "#10B981",
+      "bg_badge": "rgba(16, 185, 129, 0.15)",
+      "border": "rgba(16, 185, 129, 0.3)",
+      "text": "#34D399",
+      "highlight_bg": "rgba(16, 185, 129, 0.18)"
+    },
+    "verdict_outdated": {
+      "primary": "#EF4444",
+      "bg_badge": "rgba(239, 68, 68, 0.15)",
+      "border": "rgba(239, 68, 68, 0.3)",
+      "text": "#F87171",
+      "highlight_bg": "rgba(239, 68, 68, 0.18)"
+    },
+    "verdict_uncertain": {
+      "primary": "#F59E0B",
+      "bg_badge": "rgba(245, 158, 11, 0.15)",
+      "border": "rgba(245, 158, 11, 0.3)",
+      "text": "#FBBF24",
+      "highlight_bg": "rgba(245, 158, 11, 0.18)"
+    },
+    "accent_brand": "#6366F1",
+    "accent_glow": "#38BDF8"
+  },
+  "typography": {
+    "font_headings": "Outfit, sans-serif",
+    "font_body": "Inter, sans-serif",
+    "font_mono": "JetBrains Mono, monospace",
+    "scale": {
+      "hero_h1": "text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight",
+      "section_h2": "text-xl sm:text-2xl font-bold tracking-tight",
+      "card_h3": "text-lg font-semibold",
+      "body": "text-sm sm:text-base leading-relaxed",
+      "caption": "text-xs font-medium tracking-wide"
+    }
+  },
+  "layout_and_structure": {
+    "container": "max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8",
+    "hero_header": {
+      "title": "FreshCheck AI",
+      "subtitle": "Detect stale claims, outdated pricing, legacy versions, and obsolete facts in AI outputs with real-time web verification.",
+      "badges": ["Real-time Tavily Search", "LLM Claim Decomposition", "Automated Fact Verification"]
+    },
+    "input_section": {
+      "card_wrapper": "bg-slate-900/80 backdrop-blur-md border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-6",
+      "textarea": "w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-slate-100 placeholder-slate-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-sans text-sm sm:text-base transition-all resize-y min-h-[140px]",
+      "date_input": "bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200 focus:ring-2 focus:ring-indigo-500",
+      "example_chips": [
+        {
+          "id": "tech-versions",
+          "title": "Tech Versions",
+          "label": "Software & Framework releases",
+          "text": "Next.js 14 is the latest version of Next.js released in 2024, Python 3.12 is the newest Python release, and React 18 is current."
+        },
+        {
+          "id": "product-prices",
+          "title": "Product Pricing",
+          "label": "Gadgets & Subscriptions",
+          "text": "iPhone 15 Pro starts at $999, PlayStation 5 Digital Edition is priced at $399, and M3 MacBook Air starts at $1099."
+        },
+        {
+          "id": "company-leadership",
+          "title": "Executive Leadership",
+          "label": "Tech CEOs & Key Roles",
+          "text": "Satya Nadella is CEO of Microsoft, Sundar Pichai leads Alphabet, and Bob Iger is CEO of Disney."
+        }
+      ]
+    },
+    "results_section": {
+      "gauge_and_overview": "grid grid-cols-1 md:grid-cols-12 gap-6 items-stretch",
+      "overall_gauge_card": "md:col-span-5 lg:col-span-4 bg-slate-900/90 border border-slate-800 rounded-2xl p-6 flex flex-col items-center justify-center text-center relative overflow-hidden",
+      "highlighted_text_card": "md:col-span-7 lg:col-span-8 bg-slate-900/90 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between space-y-4",
+      "claims_list_container": "space-y-4"
+    }
+  },
+  "interactive_states_and_animations": {
+    "live_progress": {
+      "wrapper": "bg-slate-900/90 border border-slate-800 rounded-xl p-5 space-y-3",
+      "progress_bar": "h-2 w-full bg-slate-800 rounded-full overflow-hidden",
+      "claim_step_animation": "animate-pulse flex items-center gap-3 text-sm text-indigo-400"
+    },
+    "verdict_highlights": {
+      "Current": "bg-emerald-500/15 text-emerald-300 border-b-2 border-emerald-500 px-1 py-0.5 rounded transition-all cursor-pointer hover:bg-emerald-500/25",
+      "Outdated": "bg-rose-500/20 text-rose-300 border-b-2 border-rose-500 px-1 py-0.5 rounded transition-all cursor-pointer hover:bg-rose-500/30 font-medium",
+      "Uncertain": "bg-amber-500/15 text-amber-300 border-b-2 border-amber-500 px-1 py-0.5 rounded transition-all cursor-pointer hover:bg-amber-500/25"
+    }
+  },
+  "testing_requirements": {
+    "data_testid_conventions": {
+      "answer_textarea": "input-answer-textarea",
+      "generation_date_input": "input-date",
+      "check_button": "btn-check-freshness",
+      "reset_button": "btn-reset",
+      "example_chip": "chip-example-{id}",
+      "overall_score_gauge": "gauge-overall-score",
+      "live_progress_container": "live-progress-bar",
+      "highlighted_answer_panel": "panel-highlighted-answer",
+      "claim_highlight_span": "claim-highlight-{claim_id}",
+      "claim_card": "card-claim-{claim_id}",
+      "claim_verdict_badge": "badge-verdict-{claim_id}",
+      "corrected_fact_box": "box-corrected-fact-{claim_id}",
+      "source_link": "link-source-{claim_id}-{index}"
+    }
+  },
+  "instructions_to_main_agent": [
+    "Use standard React JSX (.js files) as indicated by the project configuration.",
+    "Ensure all interactive elements have explicit data-testid attributes matching the listed conventions.",
+    "Implement real live progress reporting during verification step by step.",
+    "Include fallback mock verification logic if Tavily key or backend API encounters network delay, ensuring zero screen freezes.",
+    "Format source publication dates clearly and make external links open safely in a new tab.",
+    "Ensure total dark mode consistency: background #0B0F17, surfaces #111827, borders rgba(255,255,255,0.08)."
+  ]
+}
