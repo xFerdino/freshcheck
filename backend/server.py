@@ -25,20 +25,24 @@ from runtime import LRU, RateLimiter, TTLCache, client_ip, http_retryable, parse
 TAVILY_URL = "https://api.tavily.com/search"
 MAX_CLAIMS = 12
 MAX_FACT_CHARS = 300
-RATE_LIMIT = int(os.environ.get("RATE_LIMIT_PER_10MIN") or 10)
+RATE_LIMIT_PER_24H = int(os.environ.get("RATE_LIMIT_PER_24H") or os.environ.get("RATE_LIMIT_PER_10MIN") or 10)
+RATE_LIMIT_WINDOW = int(os.environ.get("RATE_LIMIT_WINDOW_SECONDS") or (24 * 3600))  # 24 hours default
+RATE_LIMIT_ALLOWLIST = set(filter(None, [
+    ip.strip() for ip in os.environ.get("RATE_LIMIT_ALLOWLIST", "89.74.250.55").split(",")
+]))
 RUN_TIMEOUT = float(os.environ.get("RUN_TIMEOUT_SECONDS") or 120)
 TRUSTED_PROXY_HOPS = int(os.environ.get("TRUSTED_PROXY_HOPS") or 2)
 RESALE_DOMAINS = ("swappa.com", "ebay.", "backmarket.", "decluttr.", "gazelle.com", "mercari.com", "craigslist.org")
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("freshcheck")
-logger.info("FreshCheck config: route=%s extract_model=%s verdict_model=%s rate_limit=%s/10min run_timeout=%ss",
-            ROUTE, EXTRACT_MODEL, VERDICT_MODEL, RATE_LIMIT, RUN_TIMEOUT)
+logger.info("FreshCheck config: route=%s extract_model=%s verdict_model=%s rate_limit=%s/24h allowlist=%s run_timeout=%ss",
+            ROUTE, EXTRACT_MODEL, VERDICT_MODEL, RATE_LIMIT_PER_24H, list(RATE_LIMIT_ALLOWLIST), RUN_TIMEOUT)
 
 runs = LRU(1000)
 search_cache = TTLCache(24 * 3600, 2000)
-check_limiter = RateLimiter(RATE_LIMIT, 600)
-rewrite_limiter = RateLimiter(RATE_LIMIT, 600)
+check_limiter = RateLimiter(RATE_LIMIT_PER_24H, RATE_LIMIT_WINDOW)
+rewrite_limiter = RateLimiter(RATE_LIMIT_PER_24H, RATE_LIMIT_WINDOW)
 
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
@@ -46,9 +50,12 @@ api_router = APIRouter(prefix="/api")
 
 def rate_limited(limiter: RateLimiter):
     def dep(request: Request):
-        retry = limiter.hit(client_ip(request, TRUSTED_PROXY_HOPS))
+        ip = client_ip(request, TRUSTED_PROXY_HOPS)
+        if ip in RATE_LIMIT_ALLOWLIST or any(allow in ip for allow in RATE_LIMIT_ALLOWLIST):
+            return
+        retry = limiter.hit(ip)
         if retry:
-            raise HTTPException(status_code=429, detail=f"Too many requests. Try again in {retry} seconds.",
+            raise HTTPException(status_code=429, detail=f"Too many requests. Limit is {limiter.limit} requests per 24 hours. Try again in {retry} seconds.",
                                 headers={"Retry-After": str(retry)})
     return dep
 

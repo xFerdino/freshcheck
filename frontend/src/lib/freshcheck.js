@@ -54,12 +54,15 @@ export const MAX_CHARS = 8000;
 function errorMessage(res, body) {
   if (res.status === 429) {
     const sec = parseInt(res.headers.get("Retry-After") || "0", 10);
+    const hours = Math.round(sec / 3600);
     const min = Math.ceil(sec / 60);
-    return min > 1
+    return hours > 1
+      ? `You've hit the rate limit (10 checks / 24h). Try again in ${hours} hours.`
+      : min > 1
       ? `You've hit the rate limit. Try again in ${min} min.`
       : sec > 0
       ? `You've hit the rate limit. Try again in ${sec} seconds.`
-      : "You've hit the limit. Try again in a few minutes.";
+      : "You've hit the rate limit (10 checks / 24h). Try again tomorrow.";
   }
   if (res.status === 503) {
     return "Search isn't configured on this server.";

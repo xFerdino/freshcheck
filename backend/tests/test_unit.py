@@ -315,6 +315,15 @@ def test_rate_limit_returns_429_with_retry_after(offline, monkeypatch):
     assert r.status_code == 429 and int(r.headers["Retry-After"]) > 0
 
 
+def test_rate_limit_allowlist_bypasses_limit(offline, monkeypatch):
+    monkeypatch.setattr(server.rewrite_limiter, "limit", 1)
+    client = TestClient(server.app)
+    headers = {"CF-Connecting-IP": "89.74.250.55"}
+    for _ in range(5):
+        r = client.post("/api/rewrite", json={"run_id": "nope", "answer": ANSWER}, headers=headers)
+        assert r.status_code == 404  # Bypasses rate limit, returns 404 not 429
+
+
 def test_health_reports_presence_only():
     body = TestClient(server.app).get("/api/health").json()
     assert body["status"] == "ok" and all(isinstance(v, bool) for v in body["env"].values())

@@ -108,7 +108,13 @@ def parse_date(value) -> Optional[datetime]:
 
 
 def client_ip(request, trusted_hops: int = 2) -> str:
-    """Client IP from X-Forwarded-For, skipping the trailing entries appended by trusted proxies (not spoofable)."""
+    """Client IP from CF-Connecting-IP, X-Real-IP, or X-Forwarded-For (Cloudflare & proxy safe)."""
+    cf_ip = request.headers.get("cf-connecting-ip")
+    if cf_ip and cf_ip.strip():
+        return cf_ip.strip()
+    real_ip = request.headers.get("x-real-ip")
+    if real_ip and real_ip.strip():
+        return real_ip.strip()
     xff = [p.strip() for p in (request.headers.get("x-forwarded-for") or "").split(",") if p.strip()]
     if xff:
         return xff[-(trusted_hops + 1)] if len(xff) > trusted_hops else xff[0]
