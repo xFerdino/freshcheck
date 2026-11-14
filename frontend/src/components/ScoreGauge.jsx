@@ -9,17 +9,17 @@ export const ScoreGauge = ({ score, counts, running, filter, onSelectFilter, che
   const color = scoreColor(score);
   const offset = C - ((score ?? 0) / 100) * C;
   const label = score == null ? (running ? "Checking…" : "No claims") : score >= 70 ? "Mostly fresh" : score >= 40 ? "Partly stale" : "Stale";
+  const totalClaims = counts ? (counts.Current || 0) + (counts.Outdated || 0) + (counts.Uncertain || 0) : 0;
   return (
     <div className="md:col-span-5 lg:col-span-4 bg-slate-900/80 border border-white/[0.08] rounded-2xl p-6 flex flex-col items-center justify-center text-center relative overflow-hidden" data-testid="gauge-overall-score">
-      <div className="absolute inset-x-0 -top-24 h-48 rounded-full blur-3xl opacity-20" style={{ background: color }} />
-      <p className="relative font-mono text-xs uppercase tracking-wider text-slate-400 mb-4">Overall freshness</p>
-      <svg viewBox="0 0 200 115" className="relative w-56 max-w-full">
-        <path d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="var(--gauge-track)" strokeWidth="14" strokeLinecap="round" />
+      <p className="relative font-mono text-xs uppercase tracking-wider text-slate-400 mb-3">Overall freshness</p>
+      <svg viewBox="0 0 200 115" className="relative w-52 max-w-full">
+        <path d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="var(--gauge-track)" strokeWidth="8" strokeLinecap="round" />
         <motion.path
           d="M20 100 A80 80 0 0 1 180 100"
           fill="none"
           stroke={color}
-          strokeWidth="14"
+          strokeWidth="8"
           strokeLinecap="round"
           strokeDasharray={C}
           initial={shouldReduceMotion ? false : { strokeDashoffset: C }}
@@ -31,6 +31,9 @@ export const ScoreGauge = ({ score, counts, running, filter, onSelectFilter, che
         </text>
       </svg>
       <p className="relative mt-2 text-lg font-display font-semibold" style={{ color }} data-testid="gauge-label">{label}</p>
+      {score != null && (
+        <p className="relative mt-0.5 text-xs text-slate-400 font-medium">Average freshness of {totalClaims} {totalClaims === 1 ? "claim" : "claims"}</p>
+      )}
       <div className="relative mt-5 grid grid-cols-3 gap-2 w-full">
         {[["Current", "text-emerald-300"], ["Outdated", "text-rose-300"], ["Uncertain", "text-amber-300"]].map(([k, cls]) => {
           const isSelected = filter === k;
