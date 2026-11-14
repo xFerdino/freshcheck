@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { Check, Copy, Download, FileText, GitCompare, Loader2, Wand2 } from "lucide-react";
 import { buildMarkdown, copyText, correctedMarkdown, rewriteAnswer } from "../lib/freshcheck";
+import { ShareButton } from "./ShareButton";
 
 function formatCitations(str) {
   if (!str) return "";
@@ -50,7 +51,7 @@ const Btn = ({ children, ...props }) => (
   </button>
 );
 
-export const CorrectedAnswer = ({ runId, text, claims, summary, meta, corrected, setCorrected, onLog }) => {
+export const CorrectedAnswer = ({ runId, text, date, claims, summary, meta, corrected, setCorrected, onLog }) => {
   const [loading, setLoading] = useState(false);
   const [showDiff, setShowDiff] = useState(false);
   const [copiedCorrected, setCopiedCorrected] = useState(false);
@@ -114,6 +115,8 @@ export const CorrectedAnswer = ({ runId, text, claims, summary, meta, corrected,
           </p>
         </div>
         <div className="flex flex-wrap gap-2.5">
+          {/* Shared reports have no server run, so they can't be rewritten; show the stored result instead. */}
+          {runId && (
           <button
             type="button"
             onClick={generate}
@@ -124,6 +127,8 @@ export const CorrectedAnswer = ({ runId, text, claims, summary, meta, corrected,
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
             {corrected ? "Regenerate corrected answer" : "Generate corrected answer"}
           </button>
+          )}
+          <ShareButton variant="secondary" report={{ answer: text, date, claims, corrected }} />
           <Btn onClick={handleCopyMarkdown} data-testid="btn-copy-markdown">
             {copiedMarkdown ? <Check className="w-4 h-4 text-emerald-600" /> : <FileText className="w-4 h-4 text-indigo-600" />}
             <span>{copiedMarkdown ? "Copied" : "Copy Markdown"}</span>

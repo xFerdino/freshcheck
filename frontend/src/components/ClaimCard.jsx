@@ -93,7 +93,7 @@ export const ClaimCard = ({ claim, index, runId, generatedDate, onUpdateClaim, o
               {!v && <Loader2 className="w-3.5 h-3.5 animate-spin" />}{v || "Checking"}
             </span>
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{claim.category}</span>
-            {v && (
+            {v && runId && (
               <div className="inline-flex items-center gap-2 ml-auto sm:ml-0">
                 <button
                   type="button"
@@ -196,7 +196,7 @@ export const ClaimCard = ({ claim, index, runId, generatedDate, onUpdateClaim, o
                   )}
                 </div>
               </div>
-              <div className="flex flex-wrap items-center gap-2.5 pt-2 border-t border-white/60">
+              {runId && (<div className="flex flex-wrap items-center gap-2.5 pt-2 border-t border-white/60">
                 <button
                   type="button"
                   onClick={() => {
@@ -226,7 +226,7 @@ export const ClaimCard = ({ claim, index, runId, generatedDate, onUpdateClaim, o
                     Edit fact
                   </button>
                 )}
-              </div>
+              </div>)}
             </div>
           )}
           <p className="text-sm text-slate-700 leading-relaxed" data-testid={`reason-${claim.id}`}>{claim.reason}</p>
@@ -245,7 +245,7 @@ export const ClaimCard = ({ claim, index, runId, generatedDate, onUpdateClaim, o
                 <Copy className="w-3.5 h-3.5 text-emerald-600" /> Copy fix with citation
               </button>
             )}
-            {v && v !== "Current" && (
+            {v && runId && v !== "Current" && (
               <button
                 type="button"
                 onClick={() => {

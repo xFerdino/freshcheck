@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import "@/App.css";
 import { Toaster, toast } from "sonner";
-import { AlertTriangle, ClipboardPaste, History as HistoryIcon, Play, Radar, RefreshCw } from "lucide-react";
+import { AlertTriangle, ArrowRight, ClipboardPaste, History as HistoryIcon, Play, Radar, RefreshCw } from "lucide-react";
 import { EXAMPLES, MAX_CHARS, fetchConfig, streamCheck } from "./lib/freshcheck";
 import { InputPanel } from "./components/InputPanel";
 import { ProofDemo } from "./components/ProofDemo";
+import { ShareButton } from "./components/ShareButton";
+import { clearShareHash, hasSharedReport, readSharedReport } from "./lib/share";
 import { LiveProgress } from "./components/LiveProgress";
 import { ScoreGauge } from "./components/ScoreGauge";
 import { HighlightedAnswer } from "./components/HighlightedAnswer";
@@ -79,6 +81,32 @@ const Header = ({ collapsed, onOpenHistory, historyCount, onRunDemo, onPasteOwn 
   </header>
 );
 
+const SharedBanner = ({ summary, total, timestamp, onCheckOwn }) => {
+  const stale = summary?.counts?.Outdated ?? 0;
+  const when = timestamp ? new Date(timestamp).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : null;
+  return (
+    <section className="nm-flat-lg rounded-3xl p-6 sm:p-8 flex flex-col lg:flex-row lg:items-center gap-6 justify-between" data-testid="shared-banner">
+      <div className="space-y-2">
+        <span className="nm-inset-sm inline-flex rounded-full px-3 py-1 font-mono text-xs font-bold text-indigo-700">Shared report</span>
+        <h1 className="font-display text-2xl sm:text-4xl font-extrabold tracking-tight text-slate-900 leading-tight">
+          {stale ? <><span className="text-rose-600">{stale} of {total}</span> facts in this AI answer were stale.</> : <>All {total} facts in this AI answer checked out.</>}
+        </h1>
+        <p className="text-sm sm:text-base text-slate-600">
+          Checked against the live web with FreshCheck{when ? ` on ${when}` : ""}. Every verdict links to its sources.
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onCheckOwn}
+        data-testid="btn-check-own"
+        className="nm-btn-primary inline-flex shrink-0 items-center justify-center gap-2 rounded-full px-6 py-3.5 text-sm sm:text-base font-bold"
+      >
+        Check your own AI answer <ArrowRight className="w-4 h-4" />
+      </button>
+    </section>
+  );
+};
+
 export default function App() {
   const [answer, setAnswer] = useState("");
   const [date, setDate] = useState("");
@@ -98,12 +126,23 @@ export default function App() {
   const [checkedAt, setCheckedAt] = useState(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyCount, setHistoryCount] = useState(0);
+  const [shared, setShared] = useState(null); // { timestamp } while viewing a shared report link
   const abortRef = useRef(null);
   const currentRunRef = useRef({ claims: [], meta: null, summary: null, answer: "", date: "" });
 
   useEffect(() => {
     fetchConfig().then(setConfig).catch(() => {});
     setHistoryCount(loadHistory().length);
+    if (hasSharedReport()) {
+      readSharedReport()
+        .then((r) => {
+          setHasRun(true);
+          setAnswer(r.answer); setCheckedText(r.answer); setDate(r.date);
+          setClaims(r.claims); setSummary(r.summary); setCorrected(r.corrected);
+          setShared({ timestamp: r.timestamp });
+        })
+        .catch(() => { clearShareHash(); toast.error("That report link is broken or incomplete."); });
+    }
   }, []);
 
   const patch = (id, data) => setClaims((cs) => cs.map((c) => (c.id === id ? { ...c, ...data } : c)));
@@ -157,6 +196,7 @@ export default function App() {
     const text = typeof textArg === "string" ? textArg : answer;
     if (text.length > MAX_CHARS) { toast.error("Answer is too long (max 8,000 characters)"); return; }
     setHasRun(true);
+    if (shared) { clearShareHash(); setShared(null); }
     clearResults(); setRunning(true); setStage("extracting"); setCheckedText(text);
     currentRunRef.current = { claims: [], meta: null, summary: null, answer: text, date };
     setCheckedAt(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
@@ -182,6 +222,12 @@ export default function App() {
     el?.scrollIntoView({ block: "center", behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   };
 
+  const exitShared = () => {
+    clearShareHash();
+    clearResults(); setAnswer(""); setDate(""); setShared(null); setHasRun(false);
+    setTimeout(onPasteOwn, 0);
+  };
+
   const onCancel = () => {
     abortRef.current?.abort();
     clearResults();
@@ -200,6 +246,7 @@ export default function App() {
   };
 
   const onSelectRun = (item) => {
+    if (shared) { clearShareHash(); setShared(null); }
     abortRef.current?.abort();
     setRunning(false);
     setStage(null);
@@ -278,7 +325,8 @@ export default function App() {
       <Toaster theme="light" position="top-center" />
       <main className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8">
         <Header collapsed={hasRun} onOpenHistory={() => setHistoryOpen(true)} historyCount={historyCount} onRunDemo={onRunDemo} onPasteOwn={onPasteOwn} />
-        <InputPanel answer={answer} setAnswer={setAnswer} date={date} setDate={setDate} onCheck={onCheck} onReset={onReset} onCancel={onCancel} running={running} />
+        {shared && <SharedBanner summary={summary} total={claims.length} timestamp={shared.timestamp} onCheckOwn={exitShared} />}
+        {!shared && <InputPanel answer={answer} setAnswer={setAnswer} date={date} setDate={setDate} onCheck={onCheck} onReset={onReset} onCancel={onCancel} running={running} />}
         {running && <LiveProgress stage={stage} claims={claims} />}
         {error && !running && <ErrorState message={error} onRetry={onCheck} />}
         {!running && !error && !showResults && <EmptyState />}
@@ -296,6 +344,12 @@ export default function App() {
             >
               <RefreshCw className="w-3.5 h-3.5" /> Re-check
             </button>
+          </div>
+        )}
+        {summary && claims.length > 0 && !running && (
+          <div className="flex flex-wrap items-center justify-between gap-3" data-testid="results-toolbar">
+            <h2 className="text-xl font-bold font-display text-slate-900">{shared ? "The report" : "Your report"}</h2>
+            <ShareButton report={{ answer: checkedText, date, claims, corrected, timestamp: shared?.timestamp }} />
           </div>
         )}
         {showResults && (
@@ -364,10 +418,10 @@ export default function App() {
           </section>
         )}
         {summary && claims.length > 0 && (
-          <CorrectedAnswer runId={meta?.run_id} text={checkedText} claims={claims} summary={summary} meta={meta}
+          <CorrectedAnswer runId={meta?.run_id} text={checkedText} date={date} claims={claims} summary={summary} meta={meta}
             corrected={corrected} setCorrected={setCorrected} onLog={(l) => setLogs((ls) => [...ls, l])} />
         )}
-        {summary && (summary.counts?.Outdated > 0 || claims.some((c) => c.verdict === "Outdated")) && (
+        {summary && !shared && (summary.counts?.Outdated > 0 || claims.some((c) => c.verdict === "Outdated")) && (
           <aside className="fixed bottom-6 right-6 z-30" aria-label="Quick jump to corrections">
             <button
               type="button"
