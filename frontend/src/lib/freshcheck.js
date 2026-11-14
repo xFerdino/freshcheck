@@ -51,23 +51,43 @@ export const EXAMPLES = [
 export const MAX_CHARS = 8000;
 
 function errorMessage(res, body) {
-  if (res.status === 429) return body.detail || `Too many requests. Try again in ${res.headers.get("Retry-After") || "a few"} seconds.`;
-  if (Array.isArray(body.detail)) {
+  if (res.status === 429) {
+    const sec = parseInt(res.headers.get("Retry-After") || "0", 10);
+    const min = Math.ceil(sec / 60);
+    return min > 1
+      ? `You've hit the rate limit. Try again in ${min} min.`
+      : sec > 0
+      ? `You've hit the rate limit. Try again in ${sec} seconds.`
+      : "You've hit the limit. Try again in a few minutes.";
+  }
+  if (res.status === 503) {
+    return "Search isn't configured on this server.";
+  }
+  if (res.status === 502 || res.status === 504) {
+    return "Lost connection — your text is safe, try again.";
+  }
+  if (Array.isArray(body?.detail)) {
     const type = body.detail[0]?.type || "";
     if (type.includes("too_long")) return "Answer is too long (max 8,000 characters)";
     if (type.includes("too_short")) return "Please paste a longer answer (at least 10 characters).";
     return body.detail[0]?.msg || "Invalid request";
   }
-  return body.detail || `Request failed (${res.status})`;
+  return body?.detail || `Request failed (${res.status})`;
 }
 
 export async function streamCheck({ answer, generatedDate, onEvent, signal }) {
-  const res = await fetch(`${API}/check`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ answer, generated_date: generatedDate || null }),
-    signal,
-  });
+  let res;
+  try {
+    res = await fetch(`${API}/check`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ answer, generated_date: generatedDate || null }),
+      signal,
+    });
+  } catch (err) {
+    if (err.name === "AbortError") throw err;
+    throw new Error("Lost connection — your text is safe, try again.");
+  }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(errorMessage(res, body));
@@ -89,7 +109,7 @@ export async function streamCheck({ answer, generatedDate, onEvent, signal }) {
       if (event && data) onEvent(event, JSON.parse(data));
     }
   }
-  if (!finished) throw new Error("The connection closed before the check finished. Please try again.");
+  if (!finished) throw new Error("Lost connection — your text is safe, try again.");
 }
 
 export function buildSegments(text, claims) {
@@ -133,11 +153,16 @@ export async function fetchConfig() {
 }
 
 export async function rewriteAnswer(runId, answer) {
-  const res = await fetch(`${API}/rewrite`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ run_id: runId, answer }),
-  });
+  let res;
+  try {
+    res = await fetch(`${API}/rewrite`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ run_id: runId, answer }),
+    });
+  } catch (err) {
+    throw new Error("Lost connection — your text is safe, try again.");
+  }
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(errorMessage(res, body));
   return body;
