@@ -14,7 +14,7 @@ export const ScoreGauge = ({ score, counts, running, filter, onSelectFilter, che
       <div className="absolute inset-x-0 -top-24 h-48 rounded-full blur-3xl opacity-20" style={{ background: color }} />
       <p className="relative font-mono text-xs uppercase tracking-wider text-slate-400 mb-4">Overall freshness</p>
       <svg viewBox="0 0 200 115" className="relative w-56 max-w-full">
-        <path d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="#1F2937" strokeWidth="14" strokeLinecap="round" />
+        <path d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="var(--gauge-track)" strokeWidth="14" strokeLinecap="round" />
         <motion.path
           d="M20 100 A80 80 0 0 1 180 100"
           fill="none"
@@ -26,7 +26,7 @@ export const ScoreGauge = ({ score, counts, running, filter, onSelectFilter, che
           animate={{ strokeDashoffset: offset }}
           transition={shouldReduceMotion ? { duration: 0 } : { duration: 1.2, ease: "easeOut" }}
         />
-        <text x="100" y="92" textAnchor="middle" fill="#F9FAFB" fontSize="40" fontWeight="800" fontFamily="Outfit" data-testid="gauge-score-value">
+        <text x="100" y="92" textAnchor="middle" fill="var(--gauge-text)" fontSize="40" fontWeight="800" fontFamily="Outfit" data-testid="gauge-score-value">
           {score ?? "–"}
         </text>
       </svg>

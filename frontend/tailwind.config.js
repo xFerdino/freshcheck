@@ -48,6 +48,12 @@ module.exports = {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
+        verdict: {
+          current: 'var(--verdict-current)',
+          outdated: 'var(--verdict-outdated)',
+          uncertain: 'var(--verdict-uncertain)',
+          pending: 'var(--verdict-pending)',
+        },
         chart: {
           '1': 'hsl(var(--chart-1))',
           '2': 'hsl(var(--chart-2))',

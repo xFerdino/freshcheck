@@ -26,6 +26,12 @@
         --input: 217 19% 18%;
         --ring: 239 84% 67%;
         --radius: 0.75rem;
+        --verdict-current: #10B981;
+        --verdict-outdated: #EF4444;
+        --verdict-uncertain: #F59E0B;
+        --verdict-pending: #6366F1;
+        --gauge-track: #1F2937;
+        --gauge-text: #F9FAFB;
     }
 }
 

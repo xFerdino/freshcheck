@@ -5,25 +5,25 @@ export const VERDICT_STYLES = {
     text: "text-emerald-300",
     badge: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
     highlight: "bg-emerald-500/15 text-emerald-200 border-b-2 border-emerald-500 hover:bg-emerald-500/25",
-    color: "#10B981",
+    color: "var(--verdict-current)",
   },
   Outdated: {
     text: "text-rose-300",
     badge: "bg-rose-500/15 text-rose-300 border-rose-500/30",
     highlight: "bg-rose-500/20 text-rose-200 border-b-2 border-rose-500 hover:bg-rose-500/30 font-medium",
-    color: "#EF4444",
+    color: "var(--verdict-outdated)",
   },
   Uncertain: {
     text: "text-amber-300",
     badge: "bg-amber-500/15 text-amber-300 border-amber-500/30",
     highlight: "bg-amber-500/15 text-amber-200 border-b-2 border-amber-500 hover:bg-amber-500/25",
-    color: "#F59E0B",
+    color: "var(--verdict-uncertain)",
   },
   Pending: {
     text: "text-slate-400",
     badge: "bg-slate-700/40 text-slate-300 border-slate-600/40",
     highlight: "bg-indigo-500/10 text-slate-200 border-b-2 border-dashed border-indigo-400/60 animate-pulse",
-    color: "#6366F1",
+    color: "var(--verdict-pending)",
   },
 };
 
@@ -141,10 +141,10 @@ export function buildSegments(text, claims) {
 }
 
 export function scoreColor(score) {
-  if (score == null) return "#6366F1";
-  if (score >= 70) return "#10B981";
-  if (score >= 40) return "#F59E0B";
-  return "#EF4444";
+  if (score == null) return "var(--verdict-pending)";
+  if (score >= 70) return "var(--verdict-current)";
+  if (score >= 40) return "var(--verdict-uncertain)";
+  return "var(--verdict-outdated)";
 }
 
 export async function fetchConfig() {
