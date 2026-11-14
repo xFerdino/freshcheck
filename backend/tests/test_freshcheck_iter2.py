@@ -5,7 +5,9 @@ import re
 import pytest
 import requests
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL').rstrip('/')
+pytestmark = pytest.mark.live
+
+BASE_URL = (os.environ.get('REACT_APP_BACKEND_URL') or '').rstrip('/')
 
 
 def parse_sse(text):
@@ -52,6 +54,7 @@ def test_rewrite_validation_422(payload):
 
 
 # Rewrite: no outdated -> unchanged
+@pytest.mark.skip(reason="Superseded by SEC-5: /api/rewrite now takes run_id; see test_unit.py")
 def test_rewrite_no_outdated():
     ans = "Satya Nadella is the CEO of Microsoft."
     r = requests.post(f"{BASE_URL}/api/rewrite", json={"answer": ans, "claims": [
@@ -62,6 +65,7 @@ def test_rewrite_no_outdated():
 
 
 # Rewrite: outdated -> citations
+@pytest.mark.skip(reason="Superseded by SEC-5: /api/rewrite now takes run_id; see test_unit.py")
 def test_rewrite_with_outdated():
     ans = "Twitter's CEO is Parag Agrawal. Satya Nadella is the CEO of Microsoft."
     claims = [

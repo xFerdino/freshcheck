@@ -13,14 +13,14 @@ const Btn = ({ children, ...props }) => (
   </button>
 );
 
-export const CorrectedAnswer = ({ text, claims, summary, meta, corrected, setCorrected, onLog }) => {
+export const CorrectedAnswer = ({ runId, text, claims, summary, meta, corrected, setCorrected, onLog }) => {
   const [loading, setLoading] = useState(false);
   const outdated = summary?.counts?.Outdated ?? 0;
 
   const generate = async () => {
     setLoading(true);
     try {
-      const res = await rewriteAnswer(text, claims);
+      const res = await rewriteAnswer(runId, text);
       setCorrected(res);
       if (res.log) onLog(res.log);
       await copyText(correctedMarkdown(res));

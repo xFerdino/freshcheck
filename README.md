@@ -74,11 +74,11 @@ docker-compose.yml   # bifrost + mongo + backend + frontend
 
 | event | payload |
 |---|---|
-| `meta` | `{route, extract_model, verdict_model}` |
+| `meta` | `{run_id, route, extract_model, verdict_model}` |
 | `status` | `{stage: "extracting"}` |
-| `claims` | `{claims: [{id, claim, quote, category, search_query}]}` |
+| `claims` | `{claims: [{id, claim, quote, category, region, condition, search_query}], truncated, total_found}` |
 | `claim_start` | `{id}` |
-| `llm_call` | `{kind: "llm"\|"search", stage, ref, model, route, latency_ms, prompt_tokens, completion_tokens, results, status}` |
+| `llm_call` | `{kind: "llm"\|"search", stage, ref, model, route, latency_ms, prompt_tokens, completion_tokens, results, cached, status}` |
 | `claim_result` | `{id, verdict, freshness_score, updated_fact, reason, sources: [{title, url, date}]}` |
 | `done` | `{overall_score, counts}` |
 | `error` | `{message}` |
@@ -112,9 +112,12 @@ The verdict model receives the numbered results (title, published date, URL, con
 | `TAVILY_API_KEY` | yes | Tavily Search API key |
 | `BIFROST_BASE_URL` | no | e.g. `http://bifrost:8080`. When set, all LLM calls go through Bifrost |
 | `BIFROST_API_KEY` | no | Bearer key if your Bifrost requires one |
-| `EXTRACT_MODEL` | yes | Fast model for claim extraction, e.g. `openai/gpt-4o-mini` |
-| `VERDICT_MODEL` | yes | Strong model for verdicts and rewrites, e.g. `openai/gpt-4o` |
+| `EXTRACT_MODEL` | no (default `openai/gpt-5.4-mini`) | Fast model for claim extraction, e.g. `openai/gpt-4o-mini` |
+| `VERDICT_MODEL` | no (default `openai/gpt-5.4`) | Strong model for verdicts and rewrites, e.g. `openai/gpt-4o` |
 | `EMERGENT_LLM_KEY` | only without Bifrost | Fallback key when `BIFROST_BASE_URL` is unset |
+| `RATE_LIMIT_PER_10MIN` | no (default 10) | Per-IP requests per 10 minutes, per endpoint |
+| `RUN_TIMEOUT_SECONDS` | no (default 120) | Total time limit for one check run |
+| `TRUSTED_PROXY_HOPS` | no (default 2) | Number of trailing X-Forwarded-For entries added by your own proxies (0 when there is no proxy) |
 | `MONGO_URL`, `DB_NAME` | yes | Present for the stack; checks are not stored |
 | `CORS_ORIGINS` | no | Defaults to `*` |
 
@@ -124,6 +127,8 @@ Frontend: `REACT_APP_BACKEND_URL` (for example `http://localhost:8001`).
 
 ```bash
 git clone https://github.com/<you>/freshcheck.git && cd freshcheck
+cp backend/.env.example backend/.env      # dummy values, edit TAVILY_API_KEY etc.
+cp frontend/.env.example frontend/.env    # REACT_APP_BACKEND_URL=http://localhost:8001
 cat > .env <<'EOF'
 OPENAI_API_KEY=sk-...          # used by Bifrost (see bifrost/config.json)
 TAVILY_API_KEY=tvly-...
@@ -133,29 +138,53 @@ EOF
 docker compose up --build
 ```
 
+`.env` files are git-ignored. Only the `*.env.example` templates are committed, and they contain dummy values.
+
 - App: http://localhost:3000
 - Backend: http://localhost:8001/api/config (should show `"route": "bifrost"`)
 - Bifrost UI and logs: http://localhost:8080
 
 To add providers or keys, edit `bifrost/config.json` (for example, add an `anthropic` block and set `VERDICT_MODEL=anthropic/claude-sonnet-4-5`).
 
-### Without Docker
+### Without Docker (run locally)
 
 ```bash
+cp backend/.env.example backend/.env && cp frontend/.env.example frontend/.env   # then fill in real keys
 # Bifrost
 npx -y @maximhq/bifrost -app-dir ./bifrost -port 8080
 # backend
 cd backend && pip install -r requirements.txt --extra-index-url https://d33sy5i8bnduwe.cloudfront.net/simple/
-BIFROST_BASE_URL=http://localhost:8080 uvicorn server:app --port 8001
+uvicorn server:app --port 8001
 # frontend
-cd frontend && yarn install && REACT_APP_BACKEND_URL=http://localhost:8001 yarn start
+cd frontend && yarn install && yarn start
+```
+
+### Tests
+
+```bash
+cd backend
+pytest tests/test_unit.py -n 0          # offline: fake LLM + mocked Tavily, no keys needed
+pytest -m live                           # live tests against REACT_APP_BACKEND_URL (real LLM + Tavily)
 ```
 
 ## API
 
+- `GET /api/health`: returns `{status, route, env: {TAVILY_API_KEY: true, ...}}`. It reports only whether each variable is set, never its value.
 - `GET /api/config`: returns `{route, extract_model, verdict_model}`
-- `POST /api/check`: body `{answer, generated_date?}`, returns an SSE stream (see the events table above)
-- `POST /api/rewrite`: body `{answer, claims}`, returns `{rewritten, sources:[{n,title,url}], changed, log}`
+- `POST /api/check`: body `{answer (10–8000 chars), generated_date?}`, returns an SSE stream (see the events table above). The `meta` event carries a `run_id`.
+- `POST /api/rewrite`: body `{run_id, answer, accepted_claim_ids?}`, returns `{rewritten, sources:[{n,title,url,date}], changed, log}`. Claims and sources are read from the stored server-side run, never from the client, so this endpoint can't be used as a free LLM proxy. An unknown `run_id` returns 404, and an answer that doesn't match the run returns 409.
+
+## Safety and limits
+
+- **Rate limit:** each IP is limited per endpoint (`RATE_LIMIT_PER_10MIN`, default 10 requests per 10 minutes on `/api/check` and `/api/rewrite`). Over the limit, the API returns 429 with a `Retry-After` header.
+- **Run limits:** each run times out after 120s (`RUN_TIMEOUT_SECONDS`) and sends an `error` event. At most 12 claims are checked per run. The `claims` event includes `truncated` and `total_found` so the UI can say how many were skipped. Each `updated_fact` is capped at 300 characters.
+- **Storage:** check runs are kept in memory (an LRU of 1000 runs), and Tavily results are cached for 24 hours by normalized query. Cached searches are marked `cached` in Run details.
+- **Retries:** Tavily and LLM calls are retried twice with backoff on 429, 5xx and timeouts.
+- **Evidence rules:**
+  - An `Outdated` verdict that cites no valid source is downgraded to `Uncertain`.
+  - Resale or used-market evidence (Swappa, eBay, Back Market…) can't change a list-price verdict.
+  - Rewrites cite only the top supporting source, plus a second one only if it isn't older.
+- **CORS:** `allow_credentials=False`, methods GET and POST only, origins from `CORS_ORIGINS`.
 
 ## Screenshots
 

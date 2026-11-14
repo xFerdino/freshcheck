@@ -48,6 +48,19 @@ export const EXAMPLES = [
   },
 ];
 
+export const MAX_CHARS = 8000;
+
+function errorMessage(res, body) {
+  if (res.status === 429) return body.detail || `Too many requests. Try again in ${res.headers.get("Retry-After") || "a few"} seconds.`;
+  if (Array.isArray(body.detail)) {
+    const type = body.detail[0]?.type || "";
+    if (type.includes("too_long")) return "Answer is too long (max 8,000 characters)";
+    if (type.includes("too_short")) return "Please paste a longer answer (at least 10 characters).";
+    return body.detail[0]?.msg || "Invalid request";
+  }
+  return body.detail || `Request failed (${res.status})`;
+}
+
 export async function streamCheck({ answer, generatedDate, onEvent, signal }) {
   const res = await fetch(`${API}/check`, {
     method: "POST",
@@ -57,8 +70,7 @@ export async function streamCheck({ answer, generatedDate, onEvent, signal }) {
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    const detail = Array.isArray(body.detail) ? "Please paste a longer answer (at least 10 characters)." : body.detail;
-    throw new Error(detail || `Request failed (${res.status})`);
+    throw new Error(errorMessage(res, body));
   }
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
@@ -120,17 +132,14 @@ export async function fetchConfig() {
   return res.json();
 }
 
-export async function rewriteAnswer(answer, claims) {
+export async function rewriteAnswer(runId, answer) {
   const res = await fetch(`${API}/rewrite`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      answer,
-      claims: claims.filter((c) => c.verdict).map(({ claim, quote, verdict, updated_fact, sources }) => ({ claim, quote, verdict, updated_fact, sources })),
-    }),
+    body: JSON.stringify({ run_id: runId, answer }),
   });
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body.detail || `Rewrite failed (${res.status})`);
+  if (!res.ok) throw new Error(errorMessage(res, body));
   return body;
 }
 

@@ -1,0 +1,41 @@
+{
+  "summary": "Hardening batch 1 tested end to end. Backend: the offline unit suite passes (34/34). A new regression file (14 tests: health, CORS, rewrite 404/409/422/accepted_claim_ids, check 422 validation, rate-limit 429 with separate buckets via localhost fake XFF, one live prices run) passes 14/14. Frontend: SEC-6/7 head tags, char counter colors/limits, error mapping (mocked 422 short/long and 429), Reset/Undo toast, Cancel (text kept, toast, server run stopped), two full product-prices runs (live progress, gauge, highlights, 4 cards with sources, the 'cached' badge on every search row, route-badge 'Direct') and Copy corrected answer ([1][2][3] citations, sources list, toast) all pass. Only 3 live external checks were used. One environment issue: the CRA dev server was serving the OLD public/index.html (title 'Emergent | Fullstack App', posthog, theme #000000, no og/twitter/favicon) until I ran `supervisorctl restart frontend`. After the restart everything is correct.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/check, /api/rewrite", "issue": "The rate-limit dependency runs before body validation, so invalid requests (422) also use up the 10/10min quota. Confirmed: 10x 422 followed by 429. This may be intended, but a user who fixes a too-short answer a few times can lock themselves out."},
+      {"endpoint": "/api/check", "issue": "When the client disconnects or cancels, nothing is logged. The run 'started' line has no matching end or 'cancelled' line, which makes logs harder to follow (OBS)."},
+      {"endpoint": "/api/rewrite (prompt quality)", "issue": "The updated_fact wording leaks into the rewritten text, e.g. 'The PlayStation Direct US listing shows the PlayStation 5 Digital Edition Console - 825 GB at $599.00 [1]'. VERIFY_SYSTEM should ask for updated_fact as a plain restated fact ('The PS5 Digital Edition costs $599 in the US'), not a description of the evidence."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "SEC-6/7 head tags", "issue": "The dev server did not hot-reload public/index.html. The preview kept serving the old template with posthog until the frontend was restarted. Fixed by restarting; no code change. After future edits to index.html, restart the frontend.", "affected_selectors": ["head title", "meta[name=theme-color]"]}
+    ],
+    "design_issues": [
+      {"screen": "Input panel", "issues": ["'Generated on' uses the browser's native <input type=date> instead of a shadcn Calendar/Popover, which looks inconsistent with the dark design (minor, carried over)."]},
+      {"screen": "Highlighted answer", "issues": ["Not deterministic: in one run only 3 of 4 claims were highlighted because the LLM quote was not an exact substring, so the quote was dropped. Consider a fuzzy/normalized match fallback."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_hardening_batch1.py", "/app/backend/tests/test_unit.py", "/app/test_reports/pytest/pytest_results_iter4.xml"],
+  "action_items": [
+    "Optional: exempt 4xx validation failures from the rate-limit bucket, or count only accepted requests",
+    "Optional: log when a client disconnects or cancels a run (GeneratorExit/CancelledError in run_check)",
+    "Optional: tighten VERIFY_SYSTEM so updated_fact is a plain fact sentence that reads naturally when merged into the rewrite",
+    "Optional: replace the native date input with a shadcn Calendar popover"
+  ],
+  "critical_code_review_comments": [
+    "client_ip falls back to xff[0] when there are <= trusted_hops entries, so a direct request (bypassing ingress) can spoof its bucket. Acceptable behind ingress only.",
+    "runs.set() stores the run at start, so /api/rewrite can be called mid-run against partial results. Consider marking the run complete and returning 409 until 'done'.",
+    "rewrite() checks req.accepted_claim_ids with `in` on a list; fine at this size.",
+    "CORS allow_origins defaults to '*' with credentials False, which is correct for this public API."
+  ],
+  "updated_files": ["/app/backend/tests/test_hardening_batch1.py"],
+  "success_rate": {"backend": "100% (34/34 unit + 14/14 regression)", "frontend": "100% of requested flows (after the frontend restart for index.html)"},
+  "seed_data_creation": "None. Only in-memory runs were created; rate-limit buckets used fake XFF IPs on localhost.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run `pytest tests/test_unit.py -n 0` (offline) and `pytest tests/test_hardening_batch1.py -n 0` (one live run via localhost with a fake XFF IP, so it does not use the external quota). The external /api/check bucket was used 3 times in this iteration (12:18 UTC). The Tavily cache was warm for prices queries, so runs were about 3s. The truncation notice was only verified as hidden; truncation itself is covered by the unit test test_truncation_flag.",
+  "rca of the issue": "Stale index.html: public/index.html was modified at 12:13:28 but webpack-dev-server/HtmlWebpackPlugin kept the cached old template (likely an atomic file replace that the watcher missed). `sudo supervisorctl restart frontend` fixed it."
+}

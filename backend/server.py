@@ -4,13 +4,14 @@ import logging
 import os
 import re
 import time
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
 
 import httpx
 from dotenv import load_dotenv
-from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi import FastAPI, APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from starlette.middleware.cors import CORSMiddleware
@@ -19,14 +20,37 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 from llm_gateway import EXTRACT_MODEL, VERDICT_MODEL, ROUTE, GatewayError, chat_json  # noqa: E402
+from runtime import LRU, RateLimiter, TTLCache, client_ip, http_retryable, parse_date, with_retries  # noqa: E402
 
 TAVILY_URL = "https://api.tavily.com/search"
+MAX_CLAIMS = 12
+MAX_FACT_CHARS = 300
+RATE_LIMIT = int(os.environ.get("RATE_LIMIT_PER_10MIN") or 10)
+RUN_TIMEOUT = float(os.environ.get("RUN_TIMEOUT_SECONDS") or 120)
+TRUSTED_PROXY_HOPS = int(os.environ.get("TRUSTED_PROXY_HOPS") or 2)
+RESALE_DOMAINS = ("swappa.com", "ebay.", "backmarket.", "decluttr.", "gazelle.com", "mercari.com", "craigslist.org")
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("freshcheck")
+logger.info("FreshCheck config: route=%s extract_model=%s verdict_model=%s rate_limit=%s/10min run_timeout=%ss",
+            ROUTE, EXTRACT_MODEL, VERDICT_MODEL, RATE_LIMIT, RUN_TIMEOUT)
+
+runs = LRU(1000)
+search_cache = TTLCache(24 * 3600, 2000)
+check_limiter = RateLimiter(RATE_LIMIT, 600)
+rewrite_limiter = RateLimiter(RATE_LIMIT, 600)
 
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
+
+
+def rate_limited(limiter: RateLimiter):
+    def dep(request: Request):
+        retry = limiter.hit(client_ip(request, TRUSTED_PROXY_HOPS))
+        if retry:
+            raise HTTPException(status_code=429, detail=f"Too many requests. Try again in {retry} seconds.",
+                                headers={"Retry-After": str(retry)})
+    return dep
 
 
 class CheckRequest(BaseModel):
@@ -34,43 +58,49 @@ class CheckRequest(BaseModel):
     generated_date: Optional[str] = None
 
 
-class RewriteClaim(BaseModel):
-    claim: str
-    quote: Optional[str] = ""
-    verdict: str
-    updated_fact: Optional[str] = None
-    sources: List[dict] = []
-
-
 class RewriteRequest(BaseModel):
+    run_id: str = Field(min_length=1, max_length=64)
     answer: str = Field(min_length=10, max_length=8000)
-    claims: List[RewriteClaim]
+    accepted_claim_ids: Optional[List[str]] = None
 
 
 EXTRACT_SYSTEM = """You extract atomic, independently checkable factual claims from an AI-generated answer.
 Focus on time-sensitive facts: prices, software/product versions, release dates, people in roles, statistics, rules/laws/policies.
 Each claim must state ONE fact. Skip opinions and vague statements.
-Return ONLY JSON: {"claims":[{"claim":"self-contained restatement","quote":"exact verbatim substring of the answer that expresses it (short, copied character-for-character)","category":"price|version|date|role|statistic|rule|other","search_query":"concise web search query to verify the current state of this fact"}]}
-Return at most 12 claims."""
+For every claim also give:
+- region: the country/market the fact applies to (e.g. "US"), or "n/a"
+- condition: "new", "used" or "n/a" (use "new" for list/retail prices unless the answer says used/refurbished)
+- search_query: concise web search query to verify the CURRENT state of this fact; for prices include the words "official price" and the region.
+Return ONLY JSON: {"claims":[{"claim":"self-contained restatement","quote":"exact verbatim substring of the answer that expresses it (short, copied character-for-character)","category":"price|version|date|role|statistic|rule|other","region":"US","condition":"new|used|n/a","search_query":"..."}]}
+Return ALL checkable claims you find (up to 40), in the order they appear."""
 
 VERIFY_SYSTEM = """You verify whether a factual claim is still current, using ONLY the provided web evidence.
 Rules:
 - Never use sources other than the numbered evidence items. Never invent URLs.
 - verdict "Current" if evidence confirms the claim is still true today.
 - verdict "Outdated" if evidence shows the fact has changed (newer version, new price, different person in role, etc).
+- If the product/service/plan has been discontinued, verdict is "Outdated" and updated_fact starts with "Discontinued:".
 - verdict "Uncertain" if evidence is missing, conflicting or insufficient.
-- Compare like-for-like: official/list prices from the vendor (same region, new not used/resale), official release channels for versions, official announcements for roles.
+- Compare like-for-like: official/list prices from the vendor for the claim's region and condition, official release channels for versions, official announcements for roles.
+- Resale or used-marketplace evidence (Swappa, eBay, Back Market, refurbished listings) can NEVER change a new/list-price verdict; if that is all you have, verdict is "Uncertain".
 - freshness_score 0-100 measures how FRESH the claim is (not your confidence): 70-100 current, 0-30 outdated, 35-65 uncertain.
-- updated_fact: the up-to-date fact in one sentence if Outdated, else null. State ONLY details explicitly present in the evidence; do not add versions, dates or numbers that the evidence does not contain.
+- updated_fact: if Outdated, restate the claim with the current fact as a plain, self-contained statement in one sentence (max 300 characters), e.g. "The PlayStation 5 Digital Edition costs $499 in the US." Keep the claim's original subject wording and region phrasing and change ONLY the outdated value. Do not copy product SKUs, listing titles or storage suffixes, and never name stores, sites or listings. Else null. State ONLY details explicitly present in the evidence; do not add versions, dates or numbers that the evidence does not contain.
 - reason: one short line.
-- source_ids: the evidence numbers you relied on, ordered so the most recent source that supports your verdict (and the updated_fact) comes FIRST; omit stale sources that only show the old fact.
+- source_ids: the evidence numbers you relied on, ordered so the most recent source that supports your verdict (and the updated_fact) comes FIRST; omit stale sources that only show the old fact. An "Outdated" verdict MUST cite at least one source.
 Return ONLY JSON: {"verdict":"Current|Outdated|Uncertain","freshness_score":0,"updated_fact":null,"reason":"","source_ids":[1]}"""
 
 
-async def tavily_search(client: httpx.AsyncClient, query: str, emit, ref: str) -> dict:
-    start = time.perf_counter()
-    log = {"kind": "search", "stage": "search", "ref": ref, "model": "tavily/advanced", "route": "tavily", "status": "ok"}
-    try:
+def norm_query(query: str) -> str:
+    return " ".join(query.lower().split())
+
+
+def is_resale(url: str) -> bool:
+    u = (url or "").lower()
+    return any(d in u for d in RESALE_DOMAINS)
+
+
+async def tavily_fetch(client: httpx.AsyncClient, query: str) -> dict:
+    async def once():
         resp = await client.post(
             TAVILY_URL,
             headers={"Authorization": f"Bearer {os.environ['TAVILY_API_KEY']}"},
@@ -78,7 +108,22 @@ async def tavily_search(client: httpx.AsyncClient, query: str, emit, ref: str) -
             timeout=40,
         )
         resp.raise_for_status()
-        data = resp.json()
+        return resp.json()
+    return await with_retries(once, http_retryable)
+
+
+async def tavily_search(client: httpx.AsyncClient, query: str, emit, ref: str) -> dict:
+    start = time.perf_counter()
+    key = norm_query(query)
+    log = {"kind": "search", "stage": "search", "ref": ref, "model": "tavily/advanced", "route": "tavily",
+           "status": "ok", "cached": False}
+    try:
+        data = search_cache.get(key)
+        if data is not None:
+            log["cached"] = True
+        else:
+            data = await tavily_fetch(client, query)
+            search_cache.set(key, data)
         log["results"] = len(data.get("results", []))
         return data
     except Exception as exc:
@@ -93,11 +138,57 @@ def uncertain(claim: dict, reason: str) -> dict:
     return {**claim, "verdict": "Uncertain", "freshness_score": 50, "updated_fact": None, "reason": reason, "sources": []}
 
 
-async def verify_claim(client: httpx.AsyncClient, claim: dict, today: str, generated: Optional[str], emit) -> dict:
+def clamp_score(verdict: str, raw) -> int:
+    m = re.search(r"\d+", str(raw if raw is not None else "50"))
+    score = max(0, min(100, int(m.group(0)) if m else 50))
+    if verdict == "Outdated":
+        return min(score, 30)
+    if verdict == "Uncertain":
+        return max(35, min(score, 65))
+    return max(score, 70)
+
+
+def valid_source_ids(raw_ids, n: int) -> List[int]:
+    out = []
+    for i in raw_ids if isinstance(raw_ids, list) else []:
+        try:
+            i = int(i)
+        except (TypeError, ValueError):
+            continue
+        if 1 <= i <= n and i not in out:
+            out.append(i)
+    return out
+
+
+def map_sources(results: list, ids: List[int]) -> List[dict]:
+    return [{"title": results[i - 1].get("title") or results[i - 1]["url"], "url": results[i - 1]["url"],
+             "date": results[i - 1].get("published_date")} for i in ids]
+
+
+def finalize_verdict(claim: dict, v: dict, results: list) -> dict:
+    verdict = v.get("verdict") if v.get("verdict") in ("Current", "Outdated", "Uncertain") else "Uncertain"
+    reason = v.get("reason") or ""
+    ids = valid_source_ids(v.get("source_ids"), len(results))
+    if verdict == "Outdated" and not ids:
+        verdict, reason = "Uncertain", "Flagged as outdated but no supporting evidence was cited, so it cannot be confirmed."
+    sources = map_sources(results, ids or list(range(1, len(results) + 1)))
+    if claim.get("category") == "price" and claim.get("condition") != "used":
+        official = [s for s in sources if not is_resale(s["url"])]
+        if verdict == "Outdated" and not official:
+            verdict, reason = "Uncertain", "Only resale/used-market prices were found, which cannot change a list price."
+        if official:
+            sources = official
+    updated = (v.get("updated_fact") or "")[:MAX_FACT_CHARS] or None
+    return {**claim, "verdict": verdict, "freshness_score": clamp_score(verdict, v.get("freshness_score")),
+            "updated_fact": updated if verdict == "Outdated" else None, "reason": reason, "sources": sources}
+
+
+async def verify_claim(client: httpx.AsyncClient, claim: dict, today: str, generated: Optional[str], emit,
+                       run_id: str = "-") -> dict:
     try:
         data = await tavily_search(client, claim["search_query"] or claim["claim"], emit, claim["id"])
     except Exception as exc:
-        logger.error("Tavily failed for %s: %s", claim["id"], exc)
+        logger.error("[run %s] Tavily failed for %s: %s", run_id, claim["id"], exc)
         return uncertain(claim, "Web search failed, so this claim could not be verified.")
     results = [r for r in data.get("results", []) if r.get("url")]
     if not results:
@@ -107,7 +198,8 @@ async def verify_claim(client: httpx.AsyncClient, claim: dict, today: str, gener
         for i, r in enumerate(results, 1)
     )
     prompt = (
-        f"Today's date: {today}\nAnswer generated on: {generated or 'unknown'}\n\nCLAIM: {claim['claim']}\n\n"
+        f"Today's date: {today}\nAnswer generated on: {generated or 'unknown'}\n\nCLAIM: {claim['claim']}\n"
+        f"Category: {claim.get('category')} · Region: {claim.get('region') or 'n/a'} · Condition: {claim.get('condition') or 'n/a'}\n\n"
         f"Search summary: {data.get('answer') or 'none'}\n\nEVIDENCE:\n{evidence}"
     )
     try:
@@ -115,50 +207,74 @@ async def verify_claim(client: httpx.AsyncClient, claim: dict, today: str, gener
         await emit(log)
     except GatewayError as exc:
         await emit(exc.log)
-        logger.error("Verify LLM failed for %s: %s", claim["id"], exc)
+        logger.error("[run %s] Verify LLM failed for %s: %s", run_id, claim["id"], exc)
         return uncertain(claim, "The verification model failed for this claim.")
-    verdict = v.get("verdict") if v.get("verdict") in ("Current", "Outdated", "Uncertain") else "Uncertain"
-    ids = [i for i in v.get("source_ids", []) if isinstance(i, int) and 1 <= i <= len(results)] or list(range(1, len(results) + 1))
-    sources = [{"title": results[i - 1].get("title") or results[i - 1]["url"], "url": results[i - 1]["url"],
-                "date": results[i - 1].get("published_date")} for i in ids]
-    m = re.search(r"\d+", str(v.get("freshness_score", "50")))
-    score = max(0, min(100, int(m.group(0)) if m else 50))
-    if verdict == "Outdated":
-        score = min(score, 30)
-    elif verdict == "Uncertain":
-        score = max(35, min(score, 65))
-    else:
-        score = max(score, 70)
-    return {**claim, "verdict": verdict, "freshness_score": score,
-            "updated_fact": v.get("updated_fact") if verdict == "Outdated" else None,
-            "reason": v.get("reason") or "", "sources": sources}
+    return finalize_verdict(claim, v, results)
 
 
 def sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
 
-async def run_check(req: CheckRequest):
+def find_quote(answer: str, quote: str) -> str:
+    """Exact quote if present, else the original substring matching it case/whitespace-insensitively."""
+    if not quote:
+        return ""
+    if quote in answer:
+        return quote
+    words = quote.split()
+    if not words:
+        return ""
+    m = re.search(r"\s+".join(re.escape(w) for w in words), answer, re.IGNORECASE)
+    return m.group(0) if m else ""
+
+
+def build_claims(raw: list, answer: str) -> List[dict]:
+    claims = []
+    for i, c in enumerate(raw[:MAX_CLAIMS], 1):
+        quote = find_quote(answer, (c.get("quote") or "").strip())
+        query = c.get("search_query") or c["claim"]
+        category = c.get("category", "other")
+        if category == "price" and "official price" not in query.lower():
+            query = f"{query} official price"
+        condition = c.get("condition") if c.get("condition") in ("new", "used", "n/a") else "n/a"
+        claims.append({"id": f"c{i}", "claim": c["claim"], "quote": quote,
+                       "category": category, "region": c.get("region") or "n/a", "condition": condition,
+                       "search_query": query})
+    return claims
+
+
+TIMEOUT_MSG = "The check took longer than {s} seconds and was stopped. Try a shorter answer."
+
+
+async def run_check(req: CheckRequest, run_id: str):
+    deadline = time.monotonic() + RUN_TIMEOUT
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    yield sse("meta", {"route": ROUTE, "extract_model": EXTRACT_MODEL, "verdict_model": VERDICT_MODEL})
+    runs.set(run_id, {"answer": req.answer, "results": {}})
+    logger.info("[run %s] started (%d chars)", run_id, len(req.answer))
+    yield sse("meta", {"run_id": run_id, "route": ROUTE, "extract_model": EXTRACT_MODEL, "verdict_model": VERDICT_MODEL})
     yield sse("status", {"stage": "extracting"})
     try:
-        out, log = await chat_json(EXTRACT_MODEL, EXTRACT_SYSTEM,
-                                   f"Answer generated on: {req.generated_date or 'unknown'}\n\nANSWER:\n{req.answer}", "extract")
+        out, log = await asyncio.wait_for(
+            chat_json(EXTRACT_MODEL, EXTRACT_SYSTEM,
+                      f"Answer generated on: {req.generated_date or 'unknown'}\n\nANSWER:\n{req.answer}", "extract"),
+            timeout=RUN_TIMEOUT)
         yield sse("llm_call", log)
+    except asyncio.TimeoutError:
+        logger.warning("[run %s] timed out during extraction", run_id)
+        yield sse("error", {"message": TIMEOUT_MSG.format(s=int(RUN_TIMEOUT))})
+        return
+    except (asyncio.CancelledError, GeneratorExit):
+        logger.info("[run %s] stopped early during extraction (client cancelled)", run_id)
+        raise
     except GatewayError as exc:
-        logger.error("Extraction failed: %s", exc)
+        logger.error("[run %s] Extraction failed: %s", run_id, exc)
         yield sse("llm_call", exc.log)
         yield sse("error", {"message": "Could not extract claims from the answer. Please try again."})
         return
-    claims = []
-    for i, c in enumerate(out.get("claims", [])[:12], 1):
-        if not c.get("claim"):
-            continue
-        quote = c.get("quote") or ""
-        claims.append({"id": f"c{i}", "claim": c["claim"], "quote": quote if quote and quote in req.answer else "",
-                       "category": c.get("category", "other"), "search_query": c.get("search_query") or c["claim"]})
-    yield sse("claims", {"claims": claims})
+    raw = [c for c in out.get("claims", []) if isinstance(c, dict) and c.get("claim")]
+    claims = build_claims(raw, req.answer)
+    yield sse("claims", {"claims": claims, "truncated": len(raw) > MAX_CLAIMS, "total_found": len(raw)})
     if not claims:
         yield sse("done", {"overall_score": None, "counts": {"Current": 0, "Outdated": 0, "Uncertain": 0}})
         return
@@ -174,9 +290,9 @@ async def run_check(req: CheckRequest):
             async with sem:
                 await queue.put(("claim_start", {"id": claim["id"]}))
                 try:
-                    result = await verify_claim(client, claim, today, req.generated_date, emit)
+                    result = await verify_claim(client, claim, today, req.generated_date, emit, run_id)
                 except Exception as exc:
-                    logger.error("Verify crashed for %s: %s", claim["id"], exc)
+                    logger.error("[run %s] Verify crashed for %s: %s", run_id, claim["id"], exc)
                     result = uncertain(claim, "Verification failed for this claim.")
                 await queue.put(("claim_result", result))
 
@@ -184,23 +300,38 @@ async def run_check(req: CheckRequest):
         results, remaining = [], len(claims)
         try:
             while remaining:
-                event, data = await queue.get()
+                event, data = await asyncio.wait_for(queue.get(), timeout=max(0.01, deadline - time.monotonic()))
                 if event == "claim_result":
                     results.append(data)
+                    runs.get(run_id)["results"][data["id"]] = data
                     remaining -= 1
                 yield sse(event, data)
+        except asyncio.TimeoutError:
+            logger.warning("[run %s] timed out after %ss with %d/%d claims done", run_id, RUN_TIMEOUT, len(results), len(claims))
+            yield sse("error", {"message": TIMEOUT_MSG.format(s=int(RUN_TIMEOUT))})
+            return
         finally:
+            if remaining and any(not t.done() for t in tasks):
+                logger.info("[run %s] stopped early (client cancelled or timeout) with %d/%d claims done",
+                            run_id, len(results), len(claims))
             for t in tasks:
                 t.cancel()
 
     counts = {k: sum(1 for r in results if r["verdict"] == k) for k in ("Current", "Outdated", "Uncertain")}
     overall = round(sum(r["freshness_score"] for r in results) / len(results))
+    logger.info("[run %s] done: score=%s counts=%s", run_id, overall, counts)
     yield sse("done", {"overall_score": overall, "counts": counts})
 
 
 @api_router.get("/")
 async def root():
     return {"message": "FreshCheck API"}
+
+
+@api_router.get("/health")
+async def health():
+    keys = ("TAVILY_API_KEY", "EMERGENT_LLM_KEY", "BIFROST_BASE_URL", "BIFROST_API_KEY", "MONGO_URL")
+    return {"status": "ok", "route": ROUTE, "env": {k: bool(os.environ.get(k)) for k in keys}}
 
 
 @api_router.get("/config")
@@ -216,33 +347,51 @@ Rules:
 Return ONLY JSON: {"rewritten":"..."}"""
 
 
-@api_router.post("/rewrite")
+def pick_citations(sources: List[dict]) -> List[dict]:
+    """Top supporting source, plus a second only if it is not older than the top one."""
+    picked = [s for s in sources[:1] if s.get("url")]
+    if picked and len(sources) > 1 and sources[1].get("url") and sources[1]["url"] != picked[0]["url"]:
+        d1, d2 = parse_date(picked[0].get("date")), parse_date(sources[1].get("date"))
+        if d2 is None or d1 is None or d2 >= d1:
+            picked.append(sources[1])
+    return picked
+
+
+@api_router.post("/rewrite", dependencies=[Depends(rate_limited(rewrite_limiter))])
 async def rewrite(req: RewriteRequest):
-    outdated = [c for c in req.claims if c.verdict == "Outdated" and c.updated_fact]
+    run = runs.get(req.run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Unknown or expired check run. Run the check again.")
+    if req.answer != run["answer"]:
+        raise HTTPException(status_code=409, detail="This answer does not match the checked run.")
+    results = sorted(run["results"].values(), key=lambda r: int(r["id"][1:]))
+    outdated = [r for r in results if r["verdict"] == "Outdated" and r.get("updated_fact")]
+    if req.accepted_claim_ids is not None:
+        outdated = [r for r in outdated if r["id"] in req.accepted_claim_ids]
+    outdated = outdated[:MAX_CLAIMS]
     if not outdated:
-        return {"rewritten": req.answer, "sources": [], "changed": False, "log": None}
+        return {"rewritten": run["answer"], "sources": [], "changed": False, "log": None}
     sources, lines = [], []
     for i, c in enumerate(outdated, 1):
         marks = ""
-        for s in c.sources[:2]:
-            if s.get("url"):
-                sources.append({"n": len(sources) + 1, "title": s.get("title") or s["url"], "url": s["url"]})
-                marks += f"[{len(sources)}]"
-        lines.append(f"Correction {i}: original \"{c.quote or c.claim}\" -> \"{c.updated_fact}\" cite {marks or '(no source)'}")
-    prompt = f"ORIGINAL ANSWER:\n{req.answer}\n\nCORRECTIONS:\n" + "\n".join(lines)
+        for s in pick_citations(c["sources"]):
+            sources.append({"n": len(sources) + 1, "title": s.get("title") or s["url"], "url": s["url"], "date": s.get("date")})
+            marks += f"[{len(sources)}]"
+        lines.append(f"Correction {i}: original \"{c['quote'] or c['claim']}\" -> \"{c['updated_fact'][:MAX_FACT_CHARS]}\" cite {marks or '(no source)'}")
+    prompt = f"ORIGINAL ANSWER:\n{run['answer']}\n\nCORRECTIONS:\n" + "\n".join(lines)
     try:
-        out, log = await chat_json(VERDICT_MODEL, REWRITE_SYSTEM, prompt, "rewrite")
+        out, log = await chat_json(VERDICT_MODEL, REWRITE_SYSTEM, prompt, "rewrite", req.run_id)
     except GatewayError as exc:
-        logger.error("Rewrite failed: %s", exc)
+        logger.error("[run %s] Rewrite failed: %s", req.run_id, exc)
         raise HTTPException(status_code=502, detail="Could not rewrite the answer. Please try again.")
-    return {"rewritten": out.get("rewritten") or req.answer, "sources": sources, "changed": True, "log": log}
+    return {"rewritten": out.get("rewritten") or run["answer"], "sources": sources, "changed": True, "log": log}
 
 
-@api_router.post("/check")
+@api_router.post("/check", dependencies=[Depends(rate_limited(check_limiter))])
 async def check(req: CheckRequest):
     if not os.environ.get('TAVILY_API_KEY'):
         raise HTTPException(status_code=503, detail="TAVILY_API_KEY is not configured")
-    return StreamingResponse(run_check(req), media_type="text/event-stream",
+    return StreamingResponse(run_check(req, uuid.uuid4().hex[:12]), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
@@ -250,8 +399,8 @@ app.include_router(api_router)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_credentials=True,
+    allow_credentials=False,
     allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
-    allow_methods=["*"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )

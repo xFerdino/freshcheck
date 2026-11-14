@@ -5,9 +5,11 @@ import re
 import time
 import uuid
 
+from runtime import llm_retryable, with_retries
+
 BIFROST_BASE_URL = os.environ.get("BIFROST_BASE_URL", "").strip().rstrip("/")
-EXTRACT_MODEL = os.environ["EXTRACT_MODEL"]
-VERDICT_MODEL = os.environ["VERDICT_MODEL"]
+EXTRACT_MODEL = os.environ.get("EXTRACT_MODEL") or "openai/gpt-5.4-mini"
+VERDICT_MODEL = os.environ.get("VERDICT_MODEL") or "openai/gpt-5.4"
 ROUTE = "bifrost" if BIFROST_BASE_URL else "direct"
 
 _client = None
@@ -59,7 +61,8 @@ async def chat_json(model: str, system: str, prompt: str, stage: str, ref: str =
            "prompt_tokens": 0, "completion_tokens": 0, "status": "ok"}
     try:
         call = _call_bifrost if BIFROST_BASE_URL else _call_direct
-        text, log["prompt_tokens"], log["completion_tokens"] = await call(model, system, prompt)
+        text, log["prompt_tokens"], log["completion_tokens"] = await with_retries(
+            lambda: call(model, system, prompt), llm_retryable)
         data = parse_json(text)
     except Exception as exc:
         log.update(status="error", error=str(exc)[:200], latency_ms=round((time.perf_counter() - start) * 1000))

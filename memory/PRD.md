@@ -23,6 +23,23 @@ Build FreshCheck, a web app that detects stale facts in AI-generated answers. Th
 - docker-compose.yml (bifrost, mongo, backend, frontend), Dockerfiles, bifrost/config.json, README with mermaid diagram, MIT LICENSE and docs/screenshots.
 - The Bifrost route was verified with a local Bifrost v2.5.1 binary. Preview runs Direct.
 
+## Hardening batch 1 (2026-06)
+- Security:
+  - .gitignore covers .env files. Added .env.example templates.
+  - CORS: no credentials, GET and POST only.
+  - Per-IP rate limit, 10 per 10 minutes per endpoint, returning 429 with Retry-After. The client IP is taken from X-Forwarded-For with TRUSTED_PROXY_HOPS=2.
+  - /api/rewrite reads from the server-side run store (LRU of 1000 runs), with 404 and 409 responses.
+  - Removed PostHog. Added meta, OG and Twitter tags and an SVG favicon.
+- Bug fixes:
+  - Cancel keeps the text. Reset offers Undo.
+  - An Outdated verdict with no sources becomes Uncertain. Rewrites cite only sources that aren't older than the top one.
+  - Claims carry region and condition. Price searches use "official price", and resale evidence is ignored for list prices.
+  - Model env vars have defaults, and the config is logged at startup.
+  - Character counter with an 8,000 limit and a correct 422 message.
+  - Truncation notice when more than 12 claims are found.
+- Observability: /api/health, run_id in logs, 120s run timeout. Performance: 24h Tavily cache shown as "cached" in Run details. Retries with backoff.
+- Tests: backend/tests/test_unit.py (offline, 35 tests). Live tests are marked @pytest.mark.live.
+
 ## Backlog
 - P1: Shareable result links (would need storage)
 - P2: Export report as PDF/Markdown, a browser extension, and a per-claim re-check button

@@ -1,0 +1,32 @@
+{
+  "summary": "Retest of the iteration_4 minor fixes. Offline suite `pytest -m 'not live' -q`: 35 passed. UI: two product-prices runs (the second used warm caches) both gave score 40 (1 Current, 2 Outdated, 1 Uncertain) and 4 cards. All 4 claims were highlighted in both runs (claim-highlight-c1..c4), so find_quote works. Regenerate & copy produced a grammatical rewrite with [1] and [2][3] citations and a 3-item sources list. Cancel run (tech-versions, cancelled after claims appeared): textarea text kept, toast shown, Reset button restored. Backend logged '[run 1eb30216ce5f] stopped early (client cancelled or timeout) with 0/5 claims done'. updated_fact is better but only partly fixed: Netflix reads as a plain fact ('Netflix's Standard plan without ads costs $19.99 per month in the United States.'). PS5 still carries listing/store wording: 'The PlayStation 5 Digital Edition Console - 825 GB is priced at $599.00 on the US PlayStation Direct store.', and that phrase goes verbatim into the rewrite. External /api/check calls this iteration: 3 (12:21 UTC).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/check (VERIFY_SYSTEM updated_fact)", "issue": "PS5 updated_fact still copies the listing title and names the store ('...Console - 825 GB is priced at $599.00 on the US PlayStation Direct store.') instead of 'The PlayStation 5 Digital Edition is priced at $599.00 in the US.' Suggested fix: add a rule to keep the claim's original subject wording and region phrasing and change only the outdated value; do not copy product SKU or storage suffixes, and do not name stores or sites."},
+      {"endpoint": "/api/check (run_check)", "issue": "The 'stopped early' log line only runs inside the verify loop's finally block. If the user cancels during extraction (before the claims event), nothing is logged, so the 'started' line has no matching end line. Found by code review, not exercised, to save quota. Suggested fix: wrap the whole generator body in try/except GeneratorExit/CancelledError."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Input panel", "issues": ["Native date input kept on purpose (acknowledged)."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_unit.py", "/app/backend/tests/test_hardening_batch1.py", "/app/test_reports/pytest/pytest_results_iter5.xml"],
+  "action_items": [
+    "Optional: tighten VERIFY_SYSTEM so updated_fact keeps the claim's own subject and region wording (no listing title or SKU suffix, no store name)",
+    "Optional: log cancellation that happens during the extraction stage as well"
+  ],
+  "critical_code_review_comments": [
+    "find_quote only normalizes case and whitespace. Curly vs straight apostrophes (e.g. Netflix’s vs Netflix's) or trailing punctuation differences still fail to match and drop the highlight. Consider normalizing quotes and dashes too.",
+    "run_check finally: `remaining and any(not t.done())` also logs on normal timeout, which is fine, but the timeout path already logs a warning, so a timeout produces two lines."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (35/35 offline)", "frontend": "100% of flows; updated_fact naturalness partially met (1 of 2 outdated facts still uses listing wording)"},
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "3 external /api/check calls used at about 12:21 UTC (2 prices, 1 cancelled tech-versions), plus 1 run at 12:20 from someone else. gauge-score-value is an SVG node: use text_content(), not inner_text(). The cancel test waits for [data-testid^=progress-item-] and then clicks btn-cancel."
+}

@@ -14,7 +14,12 @@ const Row = ({ log, i }) => (
     <td className="py-2 pr-3 text-slate-500">{log.route}</td>
     <td className="py-2 pr-3 text-right text-slate-300">{log.latency_ms ?? "—"}ms</td>
     <td className="py-2 pr-3 text-right text-slate-400 whitespace-nowrap">
-      {log.kind === "llm" ? `${log.prompt_tokens} / ${log.completion_tokens}` : `${log.results ?? 0} results`}
+      {log.kind === "llm" ? `${log.prompt_tokens} / ${log.completion_tokens}` : (
+        <>
+          {`${log.results ?? 0} results`}
+          {log.cached && <span className="ml-2 rounded bg-sky-500/15 px-1.5 py-0.5 text-[10px] uppercase text-sky-300" data-testid={`run-log-cached-${i}`}>cached</span>}
+        </>
+      )}
     </td>
     <td className={`py-2 text-right ${log.status === "ok" ? "text-emerald-400" : "text-rose-400"}`} title={log.error}>{log.status}</td>
   </tr>

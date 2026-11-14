@@ -2,9 +2,12 @@
 import json
 import os
 import re
+import pytest
 import requests
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL').rstrip('/')
+pytestmark = pytest.mark.live
+
+BASE_URL = (os.environ.get('REACT_APP_BACKEND_URL') or '').rstrip('/')
 PRICES = ("ChatGPT Plus costs $20 per month. The PlayStation 5 Digital Edition is priced at $399 in the US, and the base "
           "iPhone 15 starts at $799. Netflix's Standard plan without ads costs $15.49 per month in the United States.")
 
@@ -50,6 +53,7 @@ def test_prices_score_clamp_and_sources():
 
 
 # Fix 3: rewrite keeps grammar when a claim is part of a sentence
+@pytest.mark.skip(reason="Superseded by SEC-5: /api/rewrite now takes run_id; see test_unit.py")
 def test_rewrite_grammar_inline_citations():
     claims = [
         {"claim": "PS5 Digital Edition is $399", "quote": "The PlayStation 5 Digital Edition is priced at $399 in the US",
