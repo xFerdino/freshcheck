@@ -3,10 +3,13 @@ import { buildSegments, VERDICT_STYLES } from "../lib/freshcheck";
 const focusCard = (id) => {
   const el = document.querySelector(`[data-testid="card-claim-${id}"]`);
   if (!el) return;
-  el.scrollIntoView({ behavior: "smooth", block: "center" });
-  el.classList.remove("claim-flash");
-  void el.offsetWidth;
-  el.classList.add("claim-flash");
+  const prefersReduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  el.scrollIntoView({ behavior: prefersReduced ? "auto" : "smooth", block: "center" });
+  if (!prefersReduced) {
+    el.classList.remove("claim-flash");
+    void el.offsetWidth;
+    el.classList.add("claim-flash");
+  }
 };
 
 const VERDICT_GLYPHS = {

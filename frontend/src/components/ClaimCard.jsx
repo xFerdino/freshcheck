@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
 import { ArrowUpRight, Copy, Loader2, RefreshCw, Link2Off } from "lucide-react";
 import { VERDICT_STYLES, copyText, scoreColor } from "../lib/freshcheck";
@@ -43,13 +43,14 @@ const Sources = ({ claim }) =>
   );
 
 export const ClaimCard = ({ claim, index }) => {
+  const shouldReduceMotion = useReducedMotion();
   const v = claim.verdict;
   const style = VERDICT_STYLES[v || "Pending"];
   return (
     <motion.article
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, delay: index * 0.04 }}
+      initial={shouldReduceMotion ? false : { opacity: 0, y: 12 }}
+      animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
+      transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.35, delay: index * 0.04 }}
       data-testid={`card-claim-${claim.id}`}
       className="relative bg-slate-900/80 border border-white/[0.08] rounded-2xl p-5 sm:p-6 overflow-hidden"
     >

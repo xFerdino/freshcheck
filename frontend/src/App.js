@@ -207,7 +207,10 @@ export default function App() {
           <aside className="fixed bottom-5 right-5 z-30" aria-label="Quick jump to corrections">
             <button
               type="button"
-              onClick={() => document.getElementById("fix-and-share")?.scrollIntoView({ behavior: "smooth" })}
+              onClick={() => {
+                const prefersReduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+                document.getElementById("fix-and-share")?.scrollIntoView({ behavior: prefersReduced ? "auto" : "smooth" });
+              }}
               data-testid="btn-jump-fix"
               className="inline-flex items-center gap-2 rounded-full bg-rose-500 hover:bg-rose-400 text-white px-4 py-2.5 text-xs sm:text-sm font-semibold shadow-xl shadow-rose-500/30 transition-transform active:scale-95"
             >

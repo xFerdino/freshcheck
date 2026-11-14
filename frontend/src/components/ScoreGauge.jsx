@@ -1,10 +1,11 @@
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { scoreColor } from "../lib/freshcheck";
 
 const R = 80;
 const C = Math.PI * R;
 
 export const ScoreGauge = ({ score, counts, running, filter, onSelectFilter }) => {
+  const shouldReduceMotion = useReducedMotion();
   const color = scoreColor(score);
   const offset = C - ((score ?? 0) / 100) * C;
   const label = score == null ? (running ? "Checking…" : "No claims") : score >= 70 ? "Mostly fresh" : score >= 40 ? "Partly stale" : "Stale";
@@ -21,9 +22,9 @@ export const ScoreGauge = ({ score, counts, running, filter, onSelectFilter }) =
           strokeWidth="14"
           strokeLinecap="round"
           strokeDasharray={C}
-          initial={{ strokeDashoffset: C }}
+          initial={shouldReduceMotion ? false : { strokeDashoffset: C }}
           animate={{ strokeDashoffset: offset }}
-          transition={{ duration: 1.2, ease: "easeOut" }}
+          transition={shouldReduceMotion ? { duration: 0 } : { duration: 1.2, ease: "easeOut" }}
         />
         <text x="100" y="92" textAnchor="middle" fill="#F9FAFB" fontSize="40" fontWeight="800" fontFamily="Outfit" data-testid="gauge-score-value">
           {score ?? "–"}
