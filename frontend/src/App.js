@@ -49,6 +49,7 @@ export default function App() {
   const [error, setError] = useState(null);
   const [corrected, setCorrected] = useState(null);
   const [truncation, setTruncation] = useState(null);
+  const [verdictFilter, setVerdictFilter] = useState("all");
   const abortRef = useRef(null);
 
   useEffect(() => { fetchConfig().then(setConfig).catch(() => {}); }, []);
@@ -72,7 +73,7 @@ export default function App() {
 
   const clearResults = () => {
     setClaims([]); setSummary(null); setCheckedText(""); setLogs([]); setMeta(null);
-    setError(null); setCorrected(null); setTruncation(null);
+    setError(null); setCorrected(null); setTruncation(null); setVerdictFilter("all");
   };
 
   const onCheck = async () => {
@@ -108,6 +109,16 @@ export default function App() {
 
   const showResults = (claims.length > 0 || summary) && !(error && !summary);
 
+  const VERDICT_PRIORITY = { Outdated: 0, Uncertain: 1, Current: 2 };
+  const sortedClaims = [...claims].sort((a, b) => {
+    const pa = a.verdict ? (VERDICT_PRIORITY[a.verdict] ?? 3) : 4;
+    const pb = b.verdict ? (VERDICT_PRIORITY[b.verdict] ?? 3) : 4;
+    return pa - pb;
+  });
+  const displayedClaims = verdictFilter === "all"
+    ? sortedClaims
+    : sortedClaims.filter((c) => c.verdict === verdictFilter);
+
   return (
     <div className="App grain relative overflow-x-hidden">
       <div className="glow-orb bg-indigo-600 -top-40 -left-40" />
@@ -121,7 +132,13 @@ export default function App() {
         {!running && !error && !showResults && <EmptyState />}
         {showResults && (
           <section className="grid grid-cols-1 md:grid-cols-12 gap-6 items-stretch" data-testid="results-overview">
-            <ScoreGauge score={summary?.overall_score ?? null} counts={summary?.counts} running={running} />
+            <ScoreGauge
+              score={summary?.overall_score ?? null}
+              counts={summary?.counts}
+              running={running}
+              filter={verdictFilter}
+              onSelectFilter={setVerdictFilter}
+            />
             <HighlightedAnswer text={checkedText} claims={claims} />
           </section>
         )}
@@ -134,14 +151,38 @@ export default function App() {
         )}
         {showResults && claims.length > 0 && (
           <section className="space-y-4" data-testid="claims-list">
-            <h2 className="text-lg font-semibold text-slate-100">Claims <span className="font-mono text-sm text-slate-500">({claims.length})</span></h2>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold text-slate-100">
+                Claims <span className="font-mono text-sm text-slate-500">({displayedClaims.length}{verdictFilter !== "all" ? ` of ${claims.length}` : ""})</span>
+              </h2>
+              <div className="inline-flex flex-wrap rounded-lg bg-slate-950/80 border border-white/[0.08] p-1 text-xs" data-testid="claims-filter">
+                {[
+                  ["all", `All (${claims.length})`],
+                  ["Outdated", `Outdated (${summary?.counts?.Outdated ?? claims.filter((c) => c.verdict === "Outdated").length})`],
+                  ["Uncertain", `Uncertain (${summary?.counts?.Uncertain ?? claims.filter((c) => c.verdict === "Uncertain").length})`],
+                  ["Current", `Current (${summary?.counts?.Current ?? claims.filter((c) => c.verdict === "Current").length})`],
+                ].map(([key, label]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setVerdictFilter(key)}
+                    data-testid={`filter-${key.toLowerCase()}`}
+                    className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
+                      verdictFilter === key ? "bg-indigo-500 text-white shadow" : "text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
             {truncation && (
               <p className="rounded-xl border border-amber-500/30 bg-amber-500/[0.07] px-4 py-2.5 text-sm text-amber-200" data-testid="truncation-notice">
                 Checked the first {truncation.shown} of {truncation.total} claims. Split the answer to check the rest.
               </p>
             )}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {claims.map((c, i) => <ClaimCard key={c.id} claim={c} index={i} />)}
+              {displayedClaims.map((c, i) => <ClaimCard key={c.id} claim={c} index={i} />)}
             </div>
           </section>
         )}

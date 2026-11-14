@@ -4,7 +4,7 @@ import { scoreColor } from "../lib/freshcheck";
 const R = 80;
 const C = Math.PI * R;
 
-export const ScoreGauge = ({ score, counts, running }) => {
+export const ScoreGauge = ({ score, counts, running, filter, onSelectFilter }) => {
   const color = scoreColor(score);
   const offset = C - ((score ?? 0) / 100) * C;
   const label = score == null ? (running ? "Checking…" : "No claims") : score >= 70 ? "Mostly fresh" : score >= 40 ? "Partly stale" : "Stale";
@@ -31,12 +31,25 @@ export const ScoreGauge = ({ score, counts, running }) => {
       </svg>
       <p className="relative mt-2 text-lg font-display font-semibold" style={{ color }} data-testid="gauge-label">{label}</p>
       <div className="relative mt-5 grid grid-cols-3 gap-2 w-full">
-        {[["Current", "text-emerald-300"], ["Outdated", "text-rose-300"], ["Uncertain", "text-amber-300"]].map(([k, cls]) => (
-          <div key={k} className="rounded-lg bg-slate-950/60 border border-white/[0.06] py-2" data-testid={`count-${k.toLowerCase()}`}>
-            <div className={`text-xl font-display font-bold ${cls}`}>{counts?.[k] ?? 0}</div>
-            <div className="text-[10px] font-mono uppercase tracking-wider text-slate-500">{k}</div>
-          </div>
-        ))}
+        {[["Current", "text-emerald-300"], ["Outdated", "text-rose-300"], ["Uncertain", "text-amber-300"]].map(([k, cls]) => {
+          const isSelected = filter === k;
+          return (
+            <button
+              key={k}
+              type="button"
+              onClick={() => onSelectFilter?.(isSelected ? "all" : k)}
+              className={`rounded-lg py-2 transition-all cursor-pointer border ${
+                isSelected
+                  ? "bg-slate-900 border-indigo-400 ring-2 ring-indigo-400/40"
+                  : "bg-slate-950/60 border-white/[0.06] hover:border-white/20"
+              }`}
+              data-testid={`count-${k.toLowerCase()}`}
+            >
+              <div className={`text-xl font-display font-bold ${cls}`}>{counts?.[k] ?? 0}</div>
+              <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400">{k}</div>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
