@@ -40,6 +40,10 @@
     h1, h2, h3, .font-display { font-family: 'Outfit', sans-serif; }
     .font-mono { font-family: 'JetBrains Mono', monospace; }
     ::selection { background: rgba(99, 102, 241, 0.4); }
+    button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, mark:focus-visible {
+        outline: 2px solid rgba(99, 102, 241, 0.9);
+        outline-offset: 2px;
+    }
 }
 
 .grain::before {

@@ -14,6 +14,9 @@ export const LiveProgress = ({ stage, claims }) => {
   const pct = claims.length ? Math.round((done / claims.length) * 100) : 6;
   return (
     <section className="bg-slate-900/80 border border-white/[0.08] rounded-2xl p-5 space-y-4" data-testid="live-progress-bar">
+      <div className="sr-only" aria-live="polite" aria-atomic="true">
+        {claims.length ? `${done} of ${claims.length} claims checked` : "Extracting checkable claims"}
+      </div>
       <div className="flex items-center justify-between text-sm">
         <span className="flex items-center gap-2 text-slate-200 font-medium" data-testid="progress-stage">
           <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
@@ -21,7 +24,7 @@ export const LiveProgress = ({ stage, claims }) => {
         </span>
         <span className="font-mono text-xs text-slate-500" data-testid="progress-count">{done}/{claims.length || "?"}</span>
       </div>
-      <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+      <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden" role="progressbar" aria-valuenow={pct} aria-valuemin="0" aria-valuemax="100" aria-label="Verification progress">
         <div className="h-full bg-gradient-to-r from-indigo-500 to-sky-400 transition-[width] duration-500" style={{ width: `${pct}%` }} />
       </div>
       <ul className="space-y-2">

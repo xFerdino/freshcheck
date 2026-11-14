@@ -35,8 +35,10 @@ export const RunDetails = ({ logs, meta }) => {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-controls="run-details-body"
         data-testid="run-details-toggle"
-        className="w-full flex flex-wrap items-center justify-between gap-3 px-5 py-4 text-left"
+        className="w-full flex flex-wrap items-center justify-between gap-3 px-5 py-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 rounded-2xl"
       >
         <span className="font-display font-semibold text-slate-100">Run details</span>
         <span className="flex items-center gap-4 font-mono text-xs text-slate-400">
