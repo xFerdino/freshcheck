@@ -338,3 +338,22 @@ def test_meta_event_emits_bifrost_route(offline, monkeypatch):
     events = collect(server.CheckRequest(answer=ANSWER))
     meta_event = [d for e, d in events if e == "meta"][0]
     assert meta_event["route"] == "bifrost"
+
+
+def test_recheck_single_claim_endpoint(offline):
+    collect(server.CheckRequest(answer=ANSWER), "run_recheck")
+    client = TestClient(server.app)
+    payload = {
+        "run_id": "run_recheck",
+        "claim": {"id": "c1", "claim": "Product A costs $399", "quote": "costs $399", "category": "price",
+                  "search_query": "product a price"},
+        "search_query": "product a official price 2026",
+    }
+    r = client.post("/api/check/claim", json=payload)
+    assert r.status_code == 200
+    data = r.json()
+    assert "result" in data and "logs" in data
+    assert data["result"]["id"] == "c1"
+    assert data["result"]["verdict"] in ("Current", "Outdated", "Uncertain")
+    stored = server.runs.get("run_recheck")
+    assert stored["results"]["c1"]["id"] == "c1"

@@ -168,6 +168,22 @@ export async function rewriteAnswer(runId, answer) {
   return body;
 }
 
+export async function recheckClaim({ runId, claim, generatedDate, searchQuery }) {
+  let res;
+  try {
+    res = await fetch(`${API}/check/claim`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ run_id: runId, claim, generated_date: generatedDate, search_query: searchQuery }),
+    });
+  } catch (err) {
+    throw new Error("Lost connection — your text is safe, try again.");
+  }
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(errorMessage(res, body));
+  return body;
+}
+
 export function correctedMarkdown({ rewritten, sources }) {
   if (!sources?.length) return rewritten;
   return `${rewritten}\n\nSources:\n${sources.map((s) => `[${s.n}] ${s.title} — ${s.url}`).join("\n")}`;

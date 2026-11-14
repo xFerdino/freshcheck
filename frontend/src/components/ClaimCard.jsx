@@ -1,7 +1,8 @@
+import { useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
 import { ArrowUpRight, Copy, Loader2, RefreshCw, Link2Off } from "lucide-react";
-import { VERDICT_STYLES, copyText, scoreColor } from "../lib/freshcheck";
+import { VERDICT_STYLES, copyText, recheckClaim, scoreColor } from "../lib/freshcheck";
 
 const formatDate = (d) => {
   if (!d) return null;
@@ -42,10 +43,37 @@ const Sources = ({ claim }) =>
     </ul>
   );
 
-export const ClaimCard = ({ claim, index }) => {
+export const ClaimCard = ({ claim, index, runId, generatedDate, onUpdateClaim, onLog }) => {
   const shouldReduceMotion = useReducedMotion();
+  const [rechecking, setRechecking] = useState(false);
+  const [editingQuery, setEditingQuery] = useState(false);
+  const [queryInput, setQueryInput] = useState(claim.search_query || "");
   const v = claim.verdict;
   const style = VERDICT_STYLES[v || "Pending"];
+
+  const handleRecheck = async () => {
+    setRechecking(true);
+    try {
+      const res = await recheckClaim({
+        runId,
+        claim,
+        generatedDate,
+        searchQuery: queryInput.trim() || claim.search_query,
+      });
+      if (res.result) {
+        onUpdateClaim?.(res.result);
+        if (res.logs && onLog) {
+          res.logs.forEach((l) => onLog(l));
+        }
+        toast.success(`Claim re-checked: ${res.result.verdict}`);
+      }
+    } catch (e) {
+      toast.error(e.message || "Re-check failed");
+    } finally {
+      setRechecking(false);
+    }
+  };
+
   return (
     <motion.article
       initial={shouldReduceMotion ? false : { opacity: 0, y: 12 }}
@@ -56,13 +84,56 @@ export const ClaimCard = ({ claim, index }) => {
     >
       <span className="absolute left-0 top-0 bottom-0 w-1" style={{ background: style.color }} />
       <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0 space-y-2">
+        <div className="min-w-0 space-y-2 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${style.badge}`} data-testid={`badge-verdict-${claim.id}`}>
               {!v && <Loader2 className="w-3 h-3 animate-spin" />}{v || "Checking"}
             </span>
             <span className="text-xs font-medium text-slate-400 capitalize">{claim.category}</span>
+            {v && (
+              <div className="inline-flex items-center gap-1.5 ml-auto sm:ml-0">
+                <button
+                  type="button"
+                  disabled={rechecking}
+                  onClick={handleRecheck}
+                  data-testid={`btn-recheck-claim-${claim.id}`}
+                  className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-indigo-300 rounded px-2 py-0.5 border border-white/10 hover:border-indigo-400/40 bg-slate-950/40 transition-colors disabled:opacity-50"
+                  title="Re-check this claim with live search"
+                >
+                  <RefreshCw className={`w-3 h-3 ${rechecking ? "animate-spin text-indigo-400" : ""}`} />
+                  <span>{rechecking ? "Re-checking…" : "Re-check"}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingQuery((s) => !s)}
+                  className="text-xs text-slate-400 hover:text-slate-200 underline"
+                  title="Edit search query for re-checking"
+                >
+                  {editingQuery ? "hide query" : "edit query"}
+                </button>
+              </div>
+            )}
           </div>
+          {editingQuery && (
+            <div className="flex gap-2 pt-1 pb-1">
+              <input
+                type="text"
+                value={queryInput}
+                onChange={(e) => setQueryInput(e.target.value)}
+                placeholder="Search query…"
+                data-testid={`input-recheck-query-${claim.id}`}
+                className="flex-1 bg-slate-950 border border-white/10 rounded px-2.5 py-1 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+              />
+              <button
+                type="button"
+                disabled={rechecking}
+                onClick={handleRecheck}
+                className="bg-indigo-600 hover:bg-indigo-500 text-white rounded px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-50"
+              >
+                Run
+              </button>
+            </div>
+          )}
           <h3 className="text-base sm:text-lg font-semibold text-slate-100 leading-snug">{claim.claim}</h3>
         </div>
         {v && (

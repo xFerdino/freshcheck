@@ -58,6 +58,13 @@ class CheckRequest(BaseModel):
     generated_date: Optional[str] = None
 
 
+class ClaimCheckRequest(BaseModel):
+    run_id: Optional[str] = None
+    claim: dict
+    generated_date: Optional[str] = None
+    search_query: Optional[str] = None
+
+
 class RewriteRequest(BaseModel):
     run_id: str = Field(min_length=1, max_length=64)
     answer: str = Field(min_length=10, max_length=8000)
@@ -385,6 +392,26 @@ async def rewrite(req: RewriteRequest):
         logger.error("[run %s] Rewrite failed: %s", req.run_id, exc)
         raise HTTPException(status_code=502, detail="Could not rewrite the answer. Please try again.")
     return {"rewritten": out.get("rewritten") or run["answer"], "sources": sources, "changed": True, "log": log}
+
+
+@api_router.post("/check/claim", dependencies=[Depends(rate_limited(check_limiter))])
+async def check_claim(req: ClaimCheckRequest):
+    if not os.environ.get('TAVILY_API_KEY'):
+        raise HTTPException(status_code=503, detail="TAVILY_API_KEY is not configured")
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    claim_data = dict(req.claim)
+    if req.search_query:
+        claim_data["search_query"] = req.search_query.strip()
+    logs = []
+
+    async def emit(log):
+        logs.append(log)
+
+    async with httpx.AsyncClient() as client:
+        result = await verify_claim(client, claim_data, today, req.generated_date, emit, req.run_id or "-")
+    if req.run_id and runs.get(req.run_id):
+        runs.get(req.run_id)["results"][result["id"]] = result
+    return {"result": result, "logs": logs}
 
 
 @api_router.post("/check", dependencies=[Depends(rate_limited(check_limiter))])

@@ -110,6 +110,26 @@ export default function App() {
     }
   };
 
+  const handleUpdateClaim = (updatedClaim) => {
+    setClaims((cs) => cs.map((c) => (c.id === updatedClaim.id ? { ...c, ...updatedClaim, state: "done" } : c)));
+    setSummary((s) => {
+      if (!s) return s;
+      const newClaims = claims.map((c) => (c.id === updatedClaim.id ? { ...c, ...updatedClaim } : c));
+      const counts = { Current: 0, Outdated: 0, Uncertain: 0 };
+      let totalScore = 0;
+      let scored = 0;
+      newClaims.forEach((c) => {
+        if (c.verdict && counts[c.verdict] !== undefined) counts[c.verdict]++;
+        if (c.freshness_score != null) { totalScore += c.freshness_score; scored++; }
+      });
+      return {
+        ...s,
+        counts,
+        overall_score: scored ? Math.round(totalScore / scored) : s.overall_score,
+      };
+    });
+  };
+
   const showResults = (claims.length > 0 || summary) && !(error && !summary);
   const isStale = Boolean(checkedText && answer !== checkedText && !running && showResults);
 
@@ -199,7 +219,17 @@ export default function App() {
               </p>
             )}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {displayedClaims.map((c, i) => <ClaimCard key={c.id} claim={c} index={i} />)}
+              {displayedClaims.map((c, i) => (
+                <ClaimCard
+                  key={c.id}
+                  claim={c}
+                  index={i}
+                  runId={meta?.run_id}
+                  generatedDate={date}
+                  onUpdateClaim={handleUpdateClaim}
+                  onLog={(l) => setLogs((ls) => [...ls, l])}
+                />
+              ))}
             </div>
           </section>
         )}
