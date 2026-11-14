@@ -145,10 +145,6 @@ export default function App() {
         {summary && claims.length === 0 && (
           <p className="text-slate-400" data-testid="no-claims-message">No checkable factual claims were found in this answer.</p>
         )}
-        {summary && claims.length > 0 && (
-          <CorrectedAnswer runId={meta?.run_id} text={checkedText} claims={claims} summary={summary} meta={meta}
-            corrected={corrected} setCorrected={setCorrected} onLog={(l) => setLogs((ls) => [...ls, l])} />
-        )}
         {showResults && claims.length > 0 && (
           <section className="space-y-4" data-testid="claims-list">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -185,6 +181,23 @@ export default function App() {
               {displayedClaims.map((c, i) => <ClaimCard key={c.id} claim={c} index={i} />)}
             </div>
           </section>
+        )}
+        {summary && claims.length > 0 && (
+          <CorrectedAnswer runId={meta?.run_id} text={checkedText} claims={claims} summary={summary} meta={meta}
+            corrected={corrected} setCorrected={setCorrected} onLog={(l) => setLogs((ls) => [...ls, l])} />
+        )}
+        {summary && (summary.counts?.Outdated > 0 || claims.some((c) => c.verdict === "Outdated")) && (
+          <aside className="fixed bottom-5 right-5 z-30" aria-label="Quick jump to corrections">
+            <button
+              type="button"
+              onClick={() => document.getElementById("fix-and-share")?.scrollIntoView({ behavior: "smooth" })}
+              data-testid="btn-jump-fix"
+              className="inline-flex items-center gap-2 rounded-full bg-rose-500 hover:bg-rose-400 text-white px-4 py-2.5 text-xs sm:text-sm font-semibold shadow-xl shadow-rose-500/30 transition-transform active:scale-95"
+            >
+              <span>Fix {summary.counts?.Outdated ?? claims.filter((c) => c.verdict === "Outdated").length} outdated fact{((summary.counts?.Outdated ?? claims.filter((c) => c.verdict === "Outdated").length) > 1 ? "s" : "")}</span>
+              <span aria-hidden="true">↓</span>
+            </button>
+          </aside>
         )}
         {logs.length > 0 && <RunDetails logs={logs} meta={meta} />}
         <Footer config={config} />

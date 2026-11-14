@@ -41,7 +41,7 @@ export const CorrectedAnswer = ({ runId, text, claims, summary, meta, corrected,
   };
 
   return (
-    <section className="bg-slate-900/80 border border-white/[0.08] rounded-2xl p-5 sm:p-6 space-y-4" data-testid="corrected-answer-section">
+    <section id="fix-and-share" className="bg-slate-900/80 border border-white/[0.08] rounded-2xl p-5 sm:p-6 space-y-4" data-testid="corrected-answer-section">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-slate-100">Fix &amp; share</h2>
