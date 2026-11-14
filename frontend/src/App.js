@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import "@/App.css";
 import { Toaster, toast } from "sonner";
-import { Radar } from "lucide-react";
+import { AlertTriangle, Radar, RefreshCw } from "lucide-react";
 import { MAX_CHARS, fetchConfig, streamCheck } from "./lib/freshcheck";
 import { InputPanel } from "./components/InputPanel";
 import { LiveProgress } from "./components/LiveProgress";
@@ -108,6 +108,7 @@ export default function App() {
   };
 
   const showResults = (claims.length > 0 || summary) && !(error && !summary);
+  const isStale = Boolean(checkedText && answer !== checkedText && !running && showResults);
 
   const VERDICT_PRIORITY = { Outdated: 0, Uncertain: 1, Current: 2 };
   const sortedClaims = [...claims].sort((a, b) => {
@@ -130,6 +131,22 @@ export default function App() {
         {running && <LiveProgress stage={stage} claims={claims} />}
         {error && !running && <ErrorState message={error} onRetry={onCheck} />}
         {!running && !error && !showResults && <EmptyState />}
+        {isStale && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/[0.08] px-4 py-3 text-sm text-amber-200" data-testid="stale-results-banner">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>Text changed since this check was run.</span>
+            </div>
+            <button
+              type="button"
+              onClick={onCheck}
+              data-testid="btn-recheck-stale"
+              className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 px-3 py-1 text-xs font-semibold text-amber-100 transition-colors"
+            >
+              <RefreshCw className="w-3.5 h-3.5" /> Re-check
+            </button>
+          </div>
+        )}
         {showResults && (
           <section className="grid grid-cols-1 md:grid-cols-12 gap-6 items-stretch" data-testid="results-overview">
             <ScoreGauge
