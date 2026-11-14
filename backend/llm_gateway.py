@@ -8,8 +8,16 @@ import uuid
 from runtime import llm_retryable, with_retries
 
 BIFROST_BASE_URL = os.environ.get("BIFROST_BASE_URL", "").strip().rstrip("/")
-EXTRACT_MODEL = os.environ.get("EXTRACT_MODEL") or "openai/gpt-5.4-mini"
-VERDICT_MODEL = os.environ.get("VERDICT_MODEL") or "openai/gpt-5.4"
+
+if os.environ.get("OPENROUTER_API_KEY") and not os.environ.get("OPENAI_API_KEY"):
+    _default_extract = "openrouter/openai/gpt-4o-mini"
+    _default_verdict = "openrouter/openai/gpt-4o"
+else:
+    _default_extract = "openai/gpt-4o-mini"
+    _default_verdict = "openai/gpt-4o"
+
+EXTRACT_MODEL = os.environ.get("EXTRACT_MODEL") or _default_extract
+VERDICT_MODEL = os.environ.get("VERDICT_MODEL") or _default_verdict
 
 
 def get_bifrost_base_url() -> str:

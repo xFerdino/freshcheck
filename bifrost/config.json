@@ -1,20 +1,25 @@
 {
   "$schema": "https://www.getbifrost.ai/schema",
   "providers": {
+    "openrouter": {
+      "keys": [
+        {
+          "name": "openrouter-primary",
+          "value": "env.OPENROUTER_API_KEY",
+          "models": [
+            "*"
+          ],
+          "weight": 1.0
+        }
+      ]
+    },
     "openai": {
       "keys": [
         {
           "name": "openai-primary",
           "value": "env.OPENAI_API_KEY",
           "models": [
-            "gpt-4o-mini",
-            "gpt-4o",
-            "gpt-5.4-mini",
-            "gpt-5.4",
-            "openai/gpt-4o-mini",
-            "openai/gpt-4o",
-            "openai/gpt-5.4-mini",
-            "openai/gpt-5.4"
+            "*"
           ],
           "weight": 1.0
         }
