@@ -19,7 +19,7 @@ from starlette.middleware.cors import CORSMiddleware
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-from llm_gateway import EXTRACT_MODEL, VERDICT_MODEL, ROUTE, GatewayError, chat_json  # noqa: E402
+from llm_gateway import EXTRACT_MODEL, VERDICT_MODEL, ROUTE, GatewayError, chat_json, get_route  # noqa: E402
 from runtime import LRU, RateLimiter, TTLCache, client_ip, http_retryable, parse_date, with_retries  # noqa: E402
 
 TAVILY_URL = "https://api.tavily.com/search"
@@ -252,7 +252,7 @@ async def run_check(req: CheckRequest, run_id: str):
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     runs.set(run_id, {"answer": req.answer, "results": {}})
     logger.info("[run %s] started (%d chars)", run_id, len(req.answer))
-    yield sse("meta", {"run_id": run_id, "route": ROUTE, "extract_model": EXTRACT_MODEL, "verdict_model": VERDICT_MODEL})
+    yield sse("meta", {"run_id": run_id, "route": get_route(), "extract_model": EXTRACT_MODEL, "verdict_model": VERDICT_MODEL})
     yield sse("status", {"stage": "extracting"})
     try:
         out, log = await asyncio.wait_for(

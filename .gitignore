@@ -65,6 +65,7 @@ chainlit.md
 .vercel
 
 # Data and databases
+bifrost/*.db*
 agenthub/agents/youtube/db
 
 # Archive files and large assets

@@ -10,9 +10,20 @@ from runtime import llm_retryable, with_retries
 BIFROST_BASE_URL = os.environ.get("BIFROST_BASE_URL", "").strip().rstrip("/")
 EXTRACT_MODEL = os.environ.get("EXTRACT_MODEL") or "openai/gpt-5.4-mini"
 VERDICT_MODEL = os.environ.get("VERDICT_MODEL") or "openai/gpt-5.4"
-ROUTE = "bifrost" if BIFROST_BASE_URL else "direct"
+
+
+def get_bifrost_base_url() -> str:
+    return os.environ.get("BIFROST_BASE_URL", "").strip().rstrip("/")
+
+
+def get_route() -> str:
+    return "bifrost" if get_bifrost_base_url() else "direct"
+
+
+ROUTE = get_route()
 
 _client = None
+_client_key = None
 
 
 class GatewayError(Exception):
@@ -22,11 +33,15 @@ class GatewayError(Exception):
 
 
 def _bifrost_client():
-    global _client
-    if _client is None:
+    global _client, _client_key
+    base_url = get_bifrost_base_url()
+    api_key = os.environ.get("BIFROST_API_KEY") or "bifrost-local"
+    current_key = (base_url, api_key)
+    if _client is None or _client_key != current_key:
         from openai import AsyncOpenAI
-        base = BIFROST_BASE_URL if BIFROST_BASE_URL.endswith("/v1") else f"{BIFROST_BASE_URL}/v1"
-        _client = AsyncOpenAI(base_url=base, api_key=os.environ.get("BIFROST_API_KEY") or "bifrost-local")
+        base = base_url if base_url.endswith("/v1") else f"{base_url}/v1"
+        _client = AsyncOpenAI(base_url=base, api_key=api_key)
+        _client_key = current_key
     return _client
 
 
@@ -57,10 +72,12 @@ async def _call_direct(model: str, system: str, prompt: str):
 async def chat_json(model: str, system: str, prompt: str, stage: str, ref: str = None):
     """Returns (parsed_json, log). Raises GatewayError carrying the log on failure."""
     start = time.perf_counter()
-    log = {"kind": "llm", "stage": stage, "ref": ref, "model": model, "route": ROUTE,
+    bifrost_url = get_bifrost_base_url()
+    route = "bifrost" if bifrost_url else "direct"
+    log = {"kind": "llm", "stage": stage, "ref": ref, "model": model, "route": route,
            "prompt_tokens": 0, "completion_tokens": 0, "status": "ok"}
     try:
-        call = _call_bifrost if BIFROST_BASE_URL else _call_direct
+        call = _call_bifrost if bifrost_url else _call_direct
         text, log["prompt_tokens"], log["completion_tokens"] = await with_retries(
             lambda: call(model, system, prompt), llm_retryable)
         data = parse_json(text)

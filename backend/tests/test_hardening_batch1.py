@@ -10,9 +10,13 @@ pytestmark = pytest.mark.live
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/")
 if not BASE_URL:
-    for line in open("/app/frontend/.env"):
-        if line.startswith("REACT_APP_BACKEND_URL="):
-            BASE_URL = line.split("=", 1)[1].strip().rstrip("/")
+    try:
+        with open("/app/frontend/.env") as f:
+            for line in f:
+                if line.startswith("REACT_APP_BACKEND_URL="):
+                    BASE_URL = line.split("=", 1)[1].strip().rstrip("/")
+    except OSError:
+        pass
 LOCAL = "http://localhost:8001"  # only for rate-limit/bucketed tests (fake XFF ip per test)
 PRICES = ("ChatGPT Plus costs $20 per month. The PlayStation 5 Digital Edition is priced at $399 in the US, and the base "
           "iPhone 15 starts at $799. Netflix's Standard plan without ads costs $15.49 per month in the United States.")

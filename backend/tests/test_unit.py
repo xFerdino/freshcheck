@@ -304,3 +304,37 @@ def test_rate_limit_returns_429_with_retry_after(offline, monkeypatch):
 def test_health_reports_presence_only():
     body = TestClient(server.app).get("/api/health").json()
     assert body["status"] == "ok" and all(isinstance(v, bool) for v in body["env"].values())
+
+
+# ---- Bifrost routing tests ----
+def test_bifrost_route_detection(monkeypatch):
+    monkeypatch.delenv("BIFROST_BASE_URL", raising=False)
+    assert server.get_route() == "direct"
+    monkeypatch.setenv("BIFROST_BASE_URL", "http://localhost:8080")
+    assert server.get_route() == "bifrost"
+
+
+def test_chat_json_routes_via_bifrost(monkeypatch):
+    from unittest.mock import AsyncMock
+    monkeypatch.setenv("BIFROST_BASE_URL", "http://localhost:8080")
+    monkeypatch.setenv("BIFROST_API_KEY", "bifrost-secret")
+
+    fake_bifrost_call = AsyncMock(return_value=('{"result": "ok"}', 10, 20))
+    monkeypatch.setattr("llm_gateway._call_bifrost", fake_bifrost_call)
+
+    from llm_gateway import chat_json
+    data, log = asyncio.run(chat_json("gpt-4o-mini", "system", "prompt", "test_stage", "c1"))
+    assert data == {"result": "ok"}
+    assert log["route"] == "bifrost"
+    assert log["stage"] == "test_stage"
+    assert log["ref"] == "c1"
+    assert log["prompt_tokens"] == 10
+    assert log["completion_tokens"] == 20
+    assert fake_bifrost_call.called
+
+
+def test_meta_event_emits_bifrost_route(offline, monkeypatch):
+    monkeypatch.setenv("BIFROST_BASE_URL", "http://localhost:8080")
+    events = collect(server.CheckRequest(answer=ANSWER))
+    meta_event = [d for e, d in events if e == "meta"][0]
+    assert meta_event["route"] == "bifrost"
