@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import "@/App.css";
 import { Toaster, toast } from "sonner";
-import { AlertTriangle, Radar, RefreshCw } from "lucide-react";
+import { AlertTriangle, History as HistoryIcon, Radar, RefreshCw } from "lucide-react";
 import { MAX_CHARS, fetchConfig, streamCheck } from "./lib/freshcheck";
 import { InputPanel } from "./components/InputPanel";
 import { LiveProgress } from "./components/LiveProgress";
@@ -11,15 +11,33 @@ import { ClaimCard } from "./components/ClaimCard";
 import { RunDetails } from "./components/RunDetails";
 import { CorrectedAnswer } from "./components/CorrectedAnswer";
 import { EmptyState, ErrorState, Footer } from "./components/States";
+import { HistoryDrawer, loadHistory, saveHistoryEntry } from "./components/History";
 
-const Header = ({ collapsed }) => (
+const Header = ({ collapsed, onOpenHistory, historyCount }) => (
   <header className="space-y-2 pt-2">
-    <div className="flex items-center gap-2.5">
-      <span className="grid place-items-center w-8 h-8 rounded-xl bg-indigo-500/15 border border-indigo-400/30">
-        <Radar className="w-4 h-4 text-indigo-300" />
-      </span>
-      <span className="font-display text-xl font-bold tracking-tight" data-testid="brand-name">FreshCheck</span>
-      <span className="hidden sm:inline text-xs text-slate-500 font-mono">stale-answer detector</span>
+    <div className="flex items-center justify-between gap-2.5">
+      <div className="flex items-center gap-2.5">
+        <span className="grid place-items-center w-8 h-8 rounded-xl bg-indigo-500/15 border border-indigo-400/30">
+          <Radar className="w-4 h-4 text-indigo-300" />
+        </span>
+        <span className="font-display text-xl font-bold tracking-tight" data-testid="brand-name">FreshCheck</span>
+        <span className="hidden sm:inline text-xs text-slate-500 font-mono">stale-answer detector</span>
+      </div>
+      <button
+        type="button"
+        onClick={onOpenHistory}
+        data-testid="btn-open-history"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/[0.08] bg-slate-900/80 hover:bg-slate-800 text-xs font-medium text-slate-300 hover:text-white transition-colors"
+        aria-label="Open check history"
+      >
+        <HistoryIcon className="w-3.5 h-3.5 text-indigo-400" />
+        <span>History</span>
+        {historyCount > 0 && (
+          <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 text-[10px] font-mono leading-none">
+            {historyCount}
+          </span>
+        )}
+      </button>
     </div>
     {!collapsed && (
       <>
@@ -51,24 +69,54 @@ export default function App() {
   const [truncation, setTruncation] = useState(null);
   const [verdictFilter, setVerdictFilter] = useState("all");
   const [checkedAt, setCheckedAt] = useState(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyCount, setHistoryCount] = useState(0);
   const abortRef = useRef(null);
+  const currentRunRef = useRef({ claims: [], meta: null, summary: null, answer: "", date: "" });
 
-  useEffect(() => { fetchConfig().then(setConfig).catch(() => {}); }, []);
+  useEffect(() => {
+    fetchConfig().then(setConfig).catch(() => {});
+    setHistoryCount(loadHistory().length);
+  }, []);
 
   const patch = (id, data) => setClaims((cs) => cs.map((c) => (c.id === id ? { ...c, ...data } : c)));
 
   const onEvent = (event, data) => {
-    if (event === "meta") setMeta(data);
+    if (event === "meta") {
+      setMeta(data);
+      currentRunRef.current.meta = data;
+    }
     if (event === "llm_call") setLogs((l) => [...l, data]);
     if (event === "status") setStage(data.stage);
     if (event === "claims") {
       setStage("verifying");
-      setClaims(data.claims.map((c) => ({ ...c, state: "queued" })));
+      const initial = data.claims.map((c) => ({ ...c, state: "queued" }));
+      setClaims(initial);
+      currentRunRef.current.claims = initial;
       setTruncation(data.truncated ? { shown: data.claims.length, total: data.total_found } : null);
     }
     if (event === "claim_start") patch(data.id, { state: "checking" });
-    if (event === "claim_result") patch(data.id, { ...data, state: "done" });
-    if (event === "done") setSummary(data);
+    if (event === "claim_result") {
+      patch(data.id, { ...data, state: "done" });
+      currentRunRef.current.claims = currentRunRef.current.claims.map((c) =>
+        c.id === data.id ? { ...c, ...data, state: "done" } : c
+      );
+    }
+    if (event === "done") {
+      setSummary(data);
+      currentRunRef.current.summary = data;
+      const entry = {
+        id: currentRunRef.current.meta?.run_id || `run_${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        answer: currentRunRef.current.answer,
+        date: currentRunRef.current.date,
+        claims: currentRunRef.current.claims,
+        summary: data,
+        meta: currentRunRef.current.meta,
+      };
+      saveHistoryEntry(entry);
+      setHistoryCount(loadHistory().length);
+    }
     if (event === "error") setError(data.message);
   };
 
@@ -82,6 +130,7 @@ export default function App() {
     if (answer.length > MAX_CHARS) { toast.error("Answer is too long (max 8,000 characters)"); return; }
     setHasRun(true);
     clearResults(); setRunning(true); setStage("extracting"); setCheckedText(answer);
+    currentRunRef.current = { claims: [], meta: null, summary: null, answer, date };
     setCheckedAt(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
     abortRef.current = new AbortController();
     try {
@@ -110,8 +159,35 @@ export default function App() {
     }
   };
 
+  const onSelectRun = (item) => {
+    abortRef.current?.abort();
+    setRunning(false);
+    setStage(null);
+    setHasRun(true);
+    clearResults();
+    setAnswer(item.answer || "");
+    setCheckedText(item.answer || "");
+    setDate(item.date || "");
+    setClaims(item.claims || []);
+    setSummary(item.summary || null);
+    setMeta(item.meta || null);
+    setCheckedAt(item.timestamp ? new Date(item.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : null);
+    currentRunRef.current = {
+      answer: item.answer || "",
+      date: item.date || "",
+      claims: item.claims || [],
+      summary: item.summary || null,
+      meta: item.meta || null,
+    };
+    toast.success("Loaded check from history");
+  };
+
   const handleUpdateClaim = (updatedClaim) => {
-    setClaims((cs) => cs.map((c) => (c.id === updatedClaim.id ? { ...c, ...updatedClaim, state: "done" } : c)));
+    setClaims((cs) => {
+      const updated = cs.map((c) => (c.id === updatedClaim.id ? { ...c, ...updatedClaim, state: "done" } : c));
+      currentRunRef.current.claims = updated;
+      return updated;
+    });
     setSummary((s) => {
       if (!s) return s;
       const newClaims = claims.map((c) => (c.id === updatedClaim.id ? { ...c, ...updatedClaim } : c));
@@ -122,11 +198,25 @@ export default function App() {
         if (c.verdict && counts[c.verdict] !== undefined) counts[c.verdict]++;
         if (c.freshness_score != null) { totalScore += c.freshness_score; scored++; }
       });
-      return {
+      const updatedSummary = {
         ...s,
         counts,
         overall_score: scored ? Math.round(totalScore / scored) : s.overall_score,
       };
+      currentRunRef.current.summary = updatedSummary;
+      if (meta?.run_id) {
+        saveHistoryEntry({
+          id: meta.run_id,
+          timestamp: new Date().toISOString(),
+          answer: checkedText,
+          date,
+          claims: newClaims,
+          summary: updatedSummary,
+          meta,
+        });
+        setHistoryCount(loadHistory().length);
+      }
+      return updatedSummary;
     });
   };
 
@@ -149,7 +239,7 @@ export default function App() {
       <div className="glow-orb bg-rose-600 top-1/2 -right-60" />
       <Toaster theme="dark" position="top-center" />
       <main className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8">
-        <Header collapsed={hasRun} />
+        <Header collapsed={hasRun} onOpenHistory={() => setHistoryOpen(true)} historyCount={historyCount} />
         <InputPanel answer={answer} setAnswer={setAnswer} date={date} setDate={setDate} onCheck={onCheck} onReset={onReset} onCancel={onCancel} running={running} />
         {running && <LiveProgress stage={stage} claims={claims} />}
         {error && !running && <ErrorState message={error} onRetry={onCheck} />}
@@ -256,6 +346,13 @@ export default function App() {
         {logs.length > 0 && <RunDetails logs={logs} meta={meta} />}
         <Footer config={config} />
       </main>
+      <HistoryDrawer
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        onSelectRun={onSelectRun}
+        currentRunId={meta?.run_id}
+        onHistoryChange={() => setHistoryCount(loadHistory().length)}
+      />
     </div>
   );
 }
