@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: freshcheck-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: frankfurt
+    envVars:
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        value: "https://freshcheck.botyklamoty.online,http://localhost:3000"
+      - key: EXTRACT_MODEL
+        value: "openai/gpt-4o-mini"
+      - key: VERDICT_MODEL
+        value: "openai/gpt-4o"
