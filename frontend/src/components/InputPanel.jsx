@@ -15,46 +15,56 @@ const CharCounter = ({ length }) => {
 };
 
 export const InputPanel = ({ answer, setAnswer, date, setDate, onCheck, onReset, onCancel, running }) => (
-  <section className="relative bg-slate-900/70 backdrop-blur-xl border border-white/[0.08] rounded-2xl p-5 sm:p-6 shadow-2xl space-y-5" data-testid="input-panel">
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="flex items-center gap-1.5 text-xs font-mono uppercase tracking-widest text-slate-500 mr-1">
-        <Sparkles className="w-3.5 h-3.5" /> Try an example
+  <section className="relative bg-slate-900/70 backdrop-blur-xl border border-white/[0.08] rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4" data-testid="input-panel">
+    <div className="space-y-2">
+      <label htmlFor="input-answer-textarea" className="block text-sm font-medium text-slate-200">
+        AI answer to check
+      </label>
+      <textarea
+        id="input-answer-textarea"
+        value={answer}
+        onChange={(e) => setAnswer(e.target.value)}
+        disabled={running}
+        placeholder="Paste an AI-generated answer here…"
+        data-testid="input-answer-textarea"
+        className="w-full bg-slate-950/80 border border-white/[0.08] rounded-xl p-4 text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/70 focus:border-transparent text-sm sm:text-base leading-relaxed resize-y min-h-[160px] transition-shadow"
+      />
+      <CharCounter length={answer.length} />
+    </div>
+
+    <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-400">
+      <span className="flex items-center gap-1 text-slate-400 font-medium">
+        <Sparkles className="w-3.5 h-3.5 text-indigo-400" /> or try:
       </span>
-      {EXAMPLES.map((ex) => (
-        <button
-          key={ex.id}
-          type="button"
-          disabled={running}
-          onClick={() => setAnswer(ex.text)}
-          data-testid={`chip-example-${ex.id}`}
-          className="group text-left rounded-full border border-white/10 bg-slate-950/60 px-3.5 py-1.5 transition-colors hover:border-indigo-400/60 hover:bg-indigo-500/10 disabled:opacity-40"
-        >
-          <span className="text-sm font-medium text-slate-200">{ex.title}</span>
-          <span className="hidden sm:inline text-xs text-slate-500 ml-2 group-hover:text-slate-400">{ex.label}</span>
-        </button>
+      {EXAMPLES.map((ex, i) => (
+        <span key={ex.id} className="inline-flex items-center">
+          {i > 0 && <span className="text-slate-600 mx-1.5">·</span>}
+          <button
+            type="button"
+            disabled={running}
+            onClick={() => setAnswer(ex.text)}
+            data-testid={`chip-example-${ex.id}`}
+            className="text-indigo-400 hover:text-indigo-300 hover:underline disabled:opacity-40 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 rounded px-1"
+          >
+            {ex.title}
+          </button>
+        </span>
       ))}
     </div>
 
-    <textarea
-      value={answer}
-      onChange={(e) => setAnswer(e.target.value)}
-      disabled={running}
-      placeholder="Paste an AI-generated answer here…"
-      data-testid="input-answer-textarea"
-      className="w-full bg-slate-950/80 border border-white/[0.08] rounded-xl p-4 text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/70 focus:border-transparent text-sm sm:text-base leading-relaxed resize-y min-h-[160px] transition-shadow"
-    />
-    <CharCounter length={answer.length} />
-
-    <div className="flex flex-col sm:flex-row sm:items-end gap-4 sm:justify-between">
-      <label className="flex flex-col gap-1.5 text-xs font-mono uppercase tracking-widest text-slate-500">
-        <span className="flex items-center gap-1.5"><CalendarDays className="w-3.5 h-3.5" /> Generated on (optional)</span>
+    <div className="flex flex-col sm:flex-row sm:items-end gap-4 sm:justify-between pt-1">
+      <label className="flex flex-col gap-1 text-xs text-slate-300 max-w-sm">
+        <span className="flex items-center gap-1.5 font-medium text-slate-200 text-sm">
+          <CalendarDays className="w-4 h-4 text-indigo-400" /> Answer generated on (optional)
+        </span>
+        <span className="text-xs text-slate-400">When was this answer written? Helps judge what changed since.</span>
         <input
           type="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}
           disabled={running}
           data-testid="input-date"
-          className="bg-slate-950/80 border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-slate-200 normal-case tracking-normal font-sans focus:outline-none focus:ring-2 focus:ring-indigo-500/70 [color-scheme:dark]"
+          className="bg-slate-950/80 border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-slate-200 normal-case tracking-normal font-sans focus:outline-none focus:ring-2 focus:ring-indigo-500/70 [color-scheme:dark] mt-0.5"
         />
       </label>
       <div className="flex gap-3">
