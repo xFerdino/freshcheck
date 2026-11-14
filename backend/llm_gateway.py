@@ -10,8 +10,8 @@ from runtime import llm_retryable, with_retries
 BIFROST_BASE_URL = os.environ.get("BIFROST_BASE_URL", "").strip().rstrip("/")
 
 if os.environ.get("OPENROUTER_API_KEY") and not os.environ.get("OPENAI_API_KEY"):
-    _default_extract = "openrouter/openai/gpt-4o-mini"
-    _default_verdict = "openrouter/openai/gpt-4o"
+    _default_extract = "openrouter/nvidia/nemotron-3.5-lightning:free"
+    _default_verdict = "openrouter/nvidia/nemotron-3.5-lightning:free"
 else:
     _default_extract = "openai/gpt-4o-mini"
     _default_verdict = "openai/gpt-4o"

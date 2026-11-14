@@ -15,6 +15,6 @@ services:
       - key: CORS_ORIGINS
         value: "https://freshcheck.botyklamoty.online,http://localhost:3000"
       - key: EXTRACT_MODEL
-        value: "openai/gpt-4o-mini"
+        value: "openrouter/nvidia/nemotron-3.5-lightning:free"
       - key: VERDICT_MODEL
-        value: "openai/gpt-4o"
+        value: "openrouter/nvidia/nemotron-3.5-lightning:free"
