@@ -4,7 +4,7 @@ import { scoreColor } from "../lib/freshcheck";
 const R = 80;
 const C = Math.PI * R;
 
-export const ScoreGauge = ({ score, counts, running, filter, onSelectFilter }) => {
+export const ScoreGauge = ({ score, counts, running, filter, onSelectFilter, checkedAt }) => {
   const shouldReduceMotion = useReducedMotion();
   const color = scoreColor(score);
   const offset = C - ((score ?? 0) / 100) * C;
@@ -51,6 +51,12 @@ export const ScoreGauge = ({ score, counts, running, filter, onSelectFilter }) =
             </button>
           );
         })}
+      </div>
+      <div className="relative mt-4 pt-3 border-t border-white/[0.08] text-center w-full space-y-1" data-testid="trust-cue">
+        <p className="text-xs text-slate-300">Every verdict links to live sources. No source → Uncertain.</p>
+        <p className="text-xs font-mono text-slate-400">
+          Checked {new Date().toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}{checkedAt ? ` ${checkedAt}` : ""} · Live search
+        </p>
       </div>
     </div>
   );

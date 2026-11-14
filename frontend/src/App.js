@@ -50,6 +50,7 @@ export default function App() {
   const [corrected, setCorrected] = useState(null);
   const [truncation, setTruncation] = useState(null);
   const [verdictFilter, setVerdictFilter] = useState("all");
+  const [checkedAt, setCheckedAt] = useState(null);
   const abortRef = useRef(null);
 
   useEffect(() => { fetchConfig().then(setConfig).catch(() => {}); }, []);
@@ -74,12 +75,14 @@ export default function App() {
   const clearResults = () => {
     setClaims([]); setSummary(null); setCheckedText(""); setLogs([]); setMeta(null);
     setError(null); setCorrected(null); setTruncation(null); setVerdictFilter("all");
+    setCheckedAt(null);
   };
 
   const onCheck = async () => {
     if (answer.length > MAX_CHARS) { toast.error("Answer is too long (max 8,000 characters)"); return; }
     setHasRun(true);
     clearResults(); setRunning(true); setStage("extracting"); setCheckedText(answer);
+    setCheckedAt(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
     abortRef.current = new AbortController();
     try {
       await streamCheck({ answer, generatedDate: date, onEvent, signal: abortRef.current.signal });
@@ -155,6 +158,7 @@ export default function App() {
               running={running}
               filter={verdictFilter}
               onSelectFilter={setVerdictFilter}
+              checkedAt={checkedAt}
             />
             <HighlightedAnswer text={checkedText} claims={claims} />
           </section>
