@@ -11,7 +11,7 @@ from typing import List, Optional
 
 import httpx
 from dotenv import load_dotenv
-from fastapi import FastAPI, APIRouter, Depends, HTTPException, Request
+from fastapi import FastAPI, APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from starlette.middleware.cors import CORSMiddleware
@@ -420,11 +420,50 @@ async def check_claim(req: ClaimCheckRequest):
 
 
 @api_router.post("/check", dependencies=[Depends(rate_limited(check_limiter))])
-async def check(req: CheckRequest):
+async def check(req: CheckRequest, stream: bool = Query(True)):
     if not os.environ.get('TAVILY_API_KEY'):
         raise HTTPException(status_code=503, detail="TAVILY_API_KEY is not configured")
-    return StreamingResponse(run_check(req, uuid.uuid4().hex[:12]), media_type="text/event-stream",
-                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+    run_id = uuid.uuid4().hex[:12]
+    if stream:
+        return StreamingResponse(run_check(req, run_id), media_type="text/event-stream",
+                                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+    # Non-streaming JSON mode (API-1)
+    results = []
+    logs = []
+    meta = None
+    summary = None
+    error_msg = None
+
+    async for chunk in run_check(req, run_id):
+        lines = dict(line.split(": ", 1) for line in chunk.strip().splitlines() if ": " in line)
+        event = lines.get("event")
+        if not event:
+            continue
+        data = json.loads(lines.get("data", "{}"))
+        if event == "meta":
+            meta = data
+        elif event == "llm_call":
+            logs.append(data)
+        elif event == "claim_result":
+            results.append(data)
+        elif event == "done":
+            summary = data
+        elif event == "error":
+            error_msg = data.get("message", "Check failed")
+
+    if error_msg and not summary:
+        status = 504 if "longer than" in error_msg else 502
+        raise HTTPException(status_code=status, detail=error_msg)
+
+    sorted_claims = sorted(results, key=lambda r: int(r["id"][1:]) if r.get("id", "").startswith("c") and r["id"][1:].isdigit() else r.get("id", ""))
+    return {
+        "run_id": run_id,
+        "claims": sorted_claims,
+        "summary": summary or {"overall_score": None, "counts": {"Current": 0, "Outdated": 0, "Uncertain": 0}},
+        "logs": logs,
+        "meta": meta or {"run_id": run_id, "route": get_route(), "extract_model": EXTRACT_MODEL, "verdict_model": VERDICT_MODEL},
+    }
 
 
 app.include_router(api_router)

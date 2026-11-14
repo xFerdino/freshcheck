@@ -171,8 +171,19 @@ pytest -m live                           # live tests against REACT_APP_BACKEND_
 
 - `GET /api/health`: returns `{status, route, env: {TAVILY_API_KEY: true, ...}}`. It reports only whether each variable is set, never its value.
 - `GET /api/config`: returns `{route, extract_model, verdict_model}`
-- `POST /api/check`: body `{answer (10–8000 chars), generated_date?}`, returns an SSE stream (see the events table above). The `meta` event carries a `run_id`.
-- `POST /api/rewrite`: body `{run_id, answer, accepted_claim_ids?}`, returns `{rewritten, sources:[{n,title,url,date}], changed, log}`. Claims and sources are read from the stored server-side run, never from the client, so this endpoint can't be used as a free LLM proxy. An unknown `run_id` returns 404, and an answer that doesn't match the run returns 409.
+- `POST /api/check`: body `{answer (10–8000 chars), generated_date?}`.
+  - **Streaming (default)**: `POST /api/check` returns an SSE stream (see events table above). The `meta` event carries a `run_id`.
+  - **JSON non-streaming mode (scripts / CI)**: `POST /api/check?stream=false` collects all verification steps and returns `{run_id, claims, summary, logs, meta}` directly as JSON.
+- `POST /api/rewrite`: body `{run_id, answer, accepted_claim_ids?, edited_facts?}`, returns `{rewritten, sources:[{n,title,url,date}], changed, log}`. Claims and sources are read from the stored server-side run, never from the client, so this endpoint can't be used as a free LLM proxy. An unknown `run_id` returns 404, and an answer that doesn't match the run returns 409.
+
+### CLI / Script curl example (non-streaming JSON mode)
+
+```bash
+# Check an AI answer non-streaming and output JSON
+curl -X POST "http://localhost:8001/api/check?stream=false" \
+  -H "Content-Type: application/json" \
+  -d '{"answer": "Python 3.11 is the latest stable release of Python."}'
+```
 
 ## Safety and limits
 

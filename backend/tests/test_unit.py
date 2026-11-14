@@ -371,3 +371,21 @@ def test_recheck_single_claim_endpoint(offline):
     assert data["result"]["verdict"] in ("Current", "Outdated", "Uncertain")
     stored = server.runs.get("run_recheck")
     assert stored["results"]["c1"]["id"] == "c1"
+
+
+def test_check_json_mode_non_streaming(offline):
+    client = TestClient(server.app)
+    r = client.post("/api/check?stream=false", json={"answer": ANSWER})
+    assert r.status_code == 200
+    data = r.json()
+    assert "run_id" in data
+    assert "claims" in data and isinstance(data["claims"], list)
+    assert len(data["claims"]) == 2
+    assert "summary" in data and "overall_score" in data["summary"]
+    assert "counts" in data["summary"]
+    assert "logs" in data and isinstance(data["logs"], list)
+    assert "meta" in data and "route" in data["meta"]
+    # Check that the run is stored server-side for subsequent rewrites
+    stored = server.runs.get(data["run_id"])
+    assert stored is not None
+    assert stored["answer"] == ANSWER
