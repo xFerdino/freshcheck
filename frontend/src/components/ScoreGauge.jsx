@@ -12,7 +12,7 @@ export const ScoreGauge = ({ score, counts, running, filter, onSelectFilter }) =
   return (
     <div className="md:col-span-5 lg:col-span-4 bg-slate-900/80 border border-white/[0.08] rounded-2xl p-6 flex flex-col items-center justify-center text-center relative overflow-hidden" data-testid="gauge-overall-score">
       <div className="absolute inset-x-0 -top-24 h-48 rounded-full blur-3xl opacity-20" style={{ background: color }} />
-      <p className="relative font-mono text-xs uppercase tracking-widest text-slate-500 mb-4">Overall freshness</p>
+      <p className="relative font-mono text-xs uppercase tracking-wider text-slate-400 mb-4">Overall freshness</p>
       <svg viewBox="0 0 200 115" className="relative w-56 max-w-full">
         <path d="M20 100 A80 80 0 0 1 180 100" fill="none" stroke="#1F2937" strokeWidth="14" strokeLinecap="round" />
         <motion.path
@@ -47,7 +47,7 @@ export const ScoreGauge = ({ score, counts, running, filter, onSelectFilter }) =
               data-testid={`count-${k.toLowerCase()}`}
             >
               <div className={`text-xl font-display font-bold ${cls}`}>{counts?.[k] ?? 0}</div>
-              <div className="text-[10px] font-mono uppercase tracking-wider text-slate-400">{k}</div>
+              <div className="text-xs font-mono uppercase tracking-wider text-slate-300">{k}</div>
             </button>
           );
         })}

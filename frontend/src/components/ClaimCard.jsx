@@ -32,7 +32,7 @@ const Sources = ({ claim }) =>
             <ArrowUpRight className="w-3.5 h-3.5 mt-0.5 text-slate-500 group-hover:text-sky-400 shrink-0" />
             <span className="min-w-0">
               <span className="block text-sm text-slate-200 group-hover:text-sky-300 truncate">{s.title}</span>
-              <span className="block font-mono text-[11px] text-slate-500">
+              <span className="block font-mono text-xs text-slate-400">
                 {hostOf(s.url)}{formatDate(s.date) ? ` · ${formatDate(s.date)}` : ""}
               </span>
             </span>
@@ -61,14 +61,14 @@ export const ClaimCard = ({ claim, index }) => {
             <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${style.badge}`} data-testid={`badge-verdict-${claim.id}`}>
               {!v && <Loader2 className="w-3 h-3 animate-spin" />}{v || "Checking"}
             </span>
-            <span className="font-mono text-[11px] uppercase tracking-wider text-slate-500">{claim.category}</span>
+            <span className="text-xs font-medium text-slate-400 capitalize">{claim.category}</span>
           </div>
           <h3 className="text-base sm:text-lg font-semibold text-slate-100 leading-snug">{claim.claim}</h3>
         </div>
         {v && (
           <div className="text-right shrink-0" data-testid={`score-claim-${claim.id}`}>
             <div className="text-3xl font-display font-extrabold" style={{ color: scoreColor(claim.freshness_score) }}>{claim.freshness_score}</div>
-            <div className="font-mono text-[10px] uppercase tracking-wider text-slate-500">fresh</div>
+            <div className="font-mono text-xs uppercase tracking-wider text-slate-400">fresh</div>
           </div>
         )}
       </div>
@@ -78,12 +78,12 @@ export const ClaimCard = ({ claim, index }) => {
             <div className="flex gap-3 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.07] p-3.5" data-testid={`box-corrected-fact-${claim.id}`}>
               <RefreshCw className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
               <div>
-                <p className="font-mono text-[10px] uppercase tracking-widest text-emerald-400/80 mb-1">Up-to-date fact</p>
+                <p className="text-xs font-semibold text-emerald-400 mb-1">Up-to-date fact</p>
                 <p className="text-sm text-emerald-100">{claim.updated_fact}</p>
               </div>
             </div>
           )}
-          <p className="text-sm text-slate-400" data-testid={`reason-${claim.id}`}>{claim.reason}</p>
+          <p className="text-sm text-slate-300" data-testid={`reason-${claim.id}`}>{claim.reason}</p>
           {claim.updated_fact && (
             <button
               type="button"
@@ -99,7 +99,7 @@ export const ClaimCard = ({ claim, index }) => {
             </button>
           )}
           <div className="border-t border-white/[0.06] pt-3">
-            <p className="font-mono text-[10px] uppercase tracking-widest text-slate-500 mb-2">Sources</p>
+            <p className="text-xs font-medium text-slate-400 mb-2">Sources</p>
             <Sources claim={claim} />
           </div>
         </div>

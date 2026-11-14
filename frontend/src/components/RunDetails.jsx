@@ -17,7 +17,7 @@ const Row = ({ log, i }) => (
       {log.kind === "llm" ? `${log.prompt_tokens} / ${log.completion_tokens}` : (
         <>
           {`${log.results ?? 0} results`}
-          {log.cached && <span className="ml-2 rounded bg-sky-500/15 px-1.5 py-0.5 text-[10px] uppercase text-sky-300" data-testid={`run-log-cached-${i}`}>cached</span>}
+          {log.cached && <span className="ml-2 rounded bg-sky-500/15 px-1.5 py-0.5 text-xs text-sky-300 font-medium" data-testid={`run-log-cached-${i}`}>cached</span>}
         </>
       )}
     </td>
@@ -58,7 +58,7 @@ export const RunDetails = ({ logs, meta }) => {
           <div className="overflow-x-auto">
             <table className="w-full font-mono text-xs">
               <thead>
-                <tr className="text-left text-slate-500 uppercase tracking-wider text-[10px]">
+                <tr className="text-left text-slate-400 uppercase tracking-wider text-xs">
                   <th className="pb-2 pr-3 font-medium">Stage</th><th className="pb-2 pr-3 font-medium">Claim</th>
                   <th className="pb-2 pr-3 font-medium">Model</th><th className="pb-2 pr-3 font-medium">Route</th>
                   <th className="pb-2 pr-3 font-medium text-right">Latency</th><th className="pb-2 pr-3 font-medium text-right">Tokens in/out</th>

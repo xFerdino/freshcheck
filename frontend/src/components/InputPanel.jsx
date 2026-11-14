@@ -99,7 +99,7 @@ export const InputPanel = ({ answer, setAnswer, date, setDate, onCheck, onReset,
             >
               {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <ScanSearch className="w-4 h-4" />}
               <span>{running ? "Checking…" : "Check freshness"}</span>
-              {!running && <span className="hidden sm:inline-block text-[11px] font-mono opacity-80 bg-indigo-600/70 border border-white/15 rounded px-1.5 py-0.5 ml-1">⌘↵</span>}
+              {!running && <span className="hidden sm:inline-block text-xs font-mono opacity-80 bg-indigo-600/70 border border-white/15 rounded px-1.5 py-0.5 ml-1">⌘↵</span>}
             </button>
           </div>
           {answer.trim().length < 10 && !running && (

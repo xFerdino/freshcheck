@@ -26,9 +26,9 @@ export const HighlightedAnswer = ({ text, claims }) => {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold text-slate-100">Original answer</h2>
         <div className="flex flex-wrap gap-3 text-xs text-slate-400">
-          <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded-sm bg-emerald-500/20 text-emerald-400 font-bold inline-flex items-center justify-center text-[10px]">✓</span>Current</span>
-          <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded-sm bg-rose-500/20 text-rose-400 font-bold inline-flex items-center justify-center text-[10px]">✕</span>Outdated</span>
-          <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded-sm bg-amber-500/20 text-amber-400 font-bold inline-flex items-center justify-center text-[10px]">?</span>Uncertain</span>
+          <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded-sm bg-emerald-500/20 text-emerald-400 font-bold inline-flex items-center justify-center text-xs">✓</span>Current</span>
+          <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded-sm bg-rose-500/20 text-rose-400 font-bold inline-flex items-center justify-center text-xs">✕</span>Outdated</span>
+          <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded-sm bg-amber-500/20 text-amber-400 font-bold inline-flex items-center justify-center text-xs">?</span>Uncertain</span>
         </div>
       </div>
       <p className="text-sm sm:text-base leading-8 text-slate-300 whitespace-pre-wrap">

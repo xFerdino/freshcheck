@@ -32,7 +32,7 @@ export const LiveProgress = ({ stage, claims }) => {
           <li key={c.id} className="flex items-start gap-3 text-sm" data-testid={`progress-item-${c.id}`}>
             <StateIcon claim={c} />
             <span className={`flex-1 ${c.verdict ? VERDICT_STYLES[c.verdict].text : c.state === "checking" ? "text-slate-200" : "text-slate-500"}`}>{c.claim}</span>
-            <span className="font-mono text-[11px] uppercase tracking-wider text-slate-500 shrink-0">
+            <span className="font-mono text-xs uppercase tracking-wider text-slate-400 shrink-0">
               {c.verdict || (c.state === "checking" ? "searching" : "queued")}
             </span>
           </li>
