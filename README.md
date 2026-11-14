@@ -108,7 +108,7 @@ The verdict model receives the numbered results (title, published date, URL, con
 - **Model routing in Bifrost style** (`provider/model` names):
   - `EXTRACT_MODEL` (for example `openai/gpt-4o-mini`): cheap and fast, used for claim extraction
   - `VERDICT_MODEL` (for example `openai/gpt-4o`): stronger, used for verdicts and the corrected-answer rewrite
-- **OpenRouter** works as a Bifrost provider: set `OPENROUTER_API_KEY` and use `openrouter/...` model names (when only `OPENROUTER_API_KEY` is set, the defaults switch to `openrouter/nvidia/nemotron-3.5-lightning:free`).
+- **OpenRouter** works as a Bifrost provider: set `OPENROUTER_API_KEY` and use `openrouter/...` model names (when only `OPENROUTER_API_KEY` is set, the defaults switch to `openrouter/nvidia/nemotron-3.5-lightning:free` for extraction and `openrouter/nvidia/nemotron-3.5-super-vl:free` for verdicts).
 - Bifrost resolves the provider from the prefix, so you can switch to `anthropic/...` or other providers without changing any code.
 - When `BIFROST_BASE_URL` is **unset**, the gateway falls back to the Emergent LLM key, so the hosted demo keeps working.
 - Every call records its model, route, latency and token usage. These appear in the UI's **Run details** panel, and the footer badge shows **Routed via Bifrost** or **Direct**.
@@ -120,8 +120,8 @@ The verdict model receives the numbered results (title, published date, URL, con
 | `TAVILY_API_KEY` | yes | Tavily Search API key |
 | `BIFROST_BASE_URL` | no | e.g. `http://bifrost:8080`. When set, all LLM calls go through Bifrost |
 | `BIFROST_API_KEY` | no | Bearer key if your Bifrost requires one |
-| `EXTRACT_MODEL` | no (default `openai/gpt-5.4-mini`) | Fast model for claim extraction, e.g. `openai/gpt-4o-mini` |
-| `VERDICT_MODEL` | no (default `openai/gpt-5.4`) | Strong model for verdicts and rewrites, e.g. `openai/gpt-4o` |
+| `EXTRACT_MODEL` | no (default `openai/gpt-4o-mini`, or `openrouter/nvidia/nemotron-3.5-lightning:free` with OpenRouter) | Fast model for claim extraction |
+| `VERDICT_MODEL` | no (default `openai/gpt-4o`, or `openrouter/nvidia/nemotron-3.5-super-vl:free` with OpenRouter) | Strong model for verdicts and rewrites |
 | `EMERGENT_LLM_KEY` | only without Bifrost | Fallback key when `BIFROST_BASE_URL` is unset |
 | `RATE_LIMIT_PER_10MIN` | no (default 10) | Per-IP requests per 10 minutes, per endpoint |
 | `RUN_TIMEOUT_SECONDS` | no (default 120) | Total time limit for one check run |

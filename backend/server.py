@@ -180,12 +180,64 @@ def map_sources(results: list, ids: List[int]) -> List[dict]:
              "date": results[i - 1].get("published_date")} for i in ids]
 
 
+STALE_PHRASES = ("outdated", "no longer", "superseded", "latest is", "has been replaced")
+CONFIRMING_PHRASES = (
+    "is still", "remains", "confirmed", "still current", "still accurate",
+    "is current", "is accurate", "is correct", "still valid", "still the latest"
+)
+INSUFFICIENT_PHRASES = (
+    "insufficient", "cannot be confirmed", "not enough", "inconclusive",
+    "unclear", "lacks evidence", "no evidence", "not confirmed"
+)
+
+
+def is_real_fact_change(claim: dict, updated_fact: Optional[str]) -> bool:
+    if not updated_fact or not updated_fact.strip():
+        return False
+    norm_u = re.sub(r"[^\w\s]", "", updated_fact).strip().lower()
+    if not norm_u:
+        return False
+    norm_claim = re.sub(r"[^\w\s]", "", claim.get("claim", "")).strip().lower()
+    norm_quote = re.sub(r"[^\w\s]", "", claim.get("quote", "")).strip().lower()
+    return norm_u != norm_claim and norm_u != norm_quote
+
+
 def finalize_verdict(claim: dict, v: dict, results: list) -> dict:
     verdict = v.get("verdict") if v.get("verdict") in ("Current", "Outdated", "Uncertain") else "Uncertain"
     reason = v.get("reason") or ""
     ids = valid_source_ids(v.get("source_ids"), len(results))
+    raw_updated = (v.get("updated_fact") or "")[:MAX_FACT_CHARS].strip() or None
+
+    r_lower = reason.lower()
+
+    # Consistency guard:
+    # 1) Current but reason/updated_fact clearly indicates stale
+    if verdict == "Current":
+        has_real_change = is_real_fact_change(claim, raw_updated)
+        says_stale = any(phrase in r_lower for phrase in STALE_PHRASES) and not any(
+            neg in r_lower for neg in ("not outdated", "isn't outdated", "not superseded")
+        )
+        if has_real_change or says_stale:
+            if ids:
+                verdict = "Outdated"
+            else:
+                verdict = "Uncertain"
+
+    # 2) Inverse: Outdated with no updated_fact and reason that only confirms the claim
+    elif verdict == "Outdated":
+        only_confirms = (
+            not raw_updated
+            and any(phrase in r_lower for phrase in CONFIRMING_PHRASES)
+            and not any(insuf in r_lower for insuf in INSUFFICIENT_PHRASES)
+            and not any(stale in r_lower for stale in STALE_PHRASES)
+        )
+        if only_confirms:
+            verdict = "Current"
+            raw_updated = None
+
     if verdict == "Outdated" and not ids:
         verdict, reason = "Uncertain", "Flagged as outdated but no supporting evidence was cited, so it cannot be confirmed."
+
     sources = map_sources(results, ids or list(range(1, len(results) + 1)))
     if claim.get("category") == "price" and claim.get("condition") != "used":
         official = [s for s in sources if not is_resale(s["url"])]
@@ -193,9 +245,16 @@ def finalize_verdict(claim: dict, v: dict, results: list) -> dict:
             verdict, reason = "Uncertain", "Only resale/used-market prices were found, which cannot change a list price."
         if official:
             sources = official
-    updated = (v.get("updated_fact") or "")[:MAX_FACT_CHARS] or None
-    return {**claim, "verdict": verdict, "freshness_score": clamp_score(verdict, v.get("freshness_score")),
-            "updated_fact": updated if verdict == "Outdated" else None, "reason": reason, "sources": sources}
+
+    final_updated = raw_updated if verdict == "Outdated" else None
+    return {
+        **claim,
+        "verdict": verdict,
+        "freshness_score": clamp_score(verdict, v.get("freshness_score")),
+        "updated_fact": final_updated,
+        "reason": reason,
+        "sources": sources,
+    }
 
 
 async def verify_claim(client: httpx.AsyncClient, claim: dict, today: str, generated: Optional[str], emit,

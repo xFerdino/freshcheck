@@ -17,4 +17,4 @@ services:
       - key: EXTRACT_MODEL
         value: "openrouter/nvidia/nemotron-3.5-lightning:free"
       - key: VERDICT_MODEL
-        value: "openrouter/nvidia/nemotron-3.5-lightning:free"
+        value: "openrouter/nvidia/nemotron-3.5-super-vl:free"

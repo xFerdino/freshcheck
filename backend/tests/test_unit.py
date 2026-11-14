@@ -68,6 +68,120 @@ def test_current_with_no_ids_falls_back_to_all_results():
     assert r["verdict"] == "Current" and len(r["sources"]) == 3 and r["updated_fact"] is None
 
 
+# ---- VERDICT-1 consistency guard ----
+@pytest.mark.parametrize("stale_reason", [
+    "Python 3.11 is outdated; the latest version is Python 3.13",
+    "Python 3.11 is no longer supported as the primary release",
+    "Python 3.11 has been superseded by newer releases",
+    "The latest is Python 3.13, not 3.11",
+    "Python 3.11 has been replaced by Python 3.12 and 3.13",
+])
+def test_finalize_verdict_flips_current_to_outdated(stale_reason):
+    c = claim(claim="Python 3.11 is the latest stable release", quote="3.11 is the latest")
+    v = {
+        "verdict": "Current",
+        "freshness_score": 85,
+        "updated_fact": "Python 3.13 is the latest stable release",
+        "reason": stale_reason,
+        "source_ids": [1],
+    }
+    r = server.finalize_verdict(c, v, RESULTS)
+    assert r["verdict"] == "Outdated"
+    assert r["freshness_score"] <= 30
+    assert r["updated_fact"] == "Python 3.13 is the latest stable release"
+    assert len(r["sources"]) == 1
+
+
+def test_finalize_verdict_flips_current_to_uncertain_when_no_valid_sources():
+    c = claim(claim="Python 3.11 is the latest stable release", quote="3.11 is the latest")
+    v = {
+        "verdict": "Current",
+        "freshness_score": 85,
+        "updated_fact": "Python 3.13 is the latest stable release",
+        "reason": "Python 3.11 is outdated and superseded",
+        "source_ids": [],
+    }
+    r = server.finalize_verdict(c, v, RESULTS)
+    assert r["verdict"] == "Uncertain"
+    assert 35 <= r["freshness_score"] <= 65
+    assert r["updated_fact"] is None
+
+
+@pytest.mark.parametrize("confirming_reason", [
+    "The claim is confirmed and remains accurate based on official docs",
+    "This version is still current and supported",
+    "The release date remains valid and is correct",
+])
+def test_finalize_verdict_inverse_flips_outdated_to_current(confirming_reason):
+    c = claim(claim="Python 3.11 was released in October 2022", quote="released in October 2022")
+    v = {
+        "verdict": "Outdated",
+        "freshness_score": 15,
+        "updated_fact": None,
+        "reason": confirming_reason,
+        "source_ids": [1],
+    }
+    r = server.finalize_verdict(c, v, RESULTS)
+    assert r["verdict"] == "Current"
+    assert r["freshness_score"] >= 70
+    assert r["updated_fact"] is None
+
+
+def test_finalize_verdict_inverse_does_not_flip_if_updated_fact_present():
+    c = claim(claim="Python 3.11 was released in October 2022")
+    v = {
+        "verdict": "Outdated",
+        "freshness_score": 15,
+        "updated_fact": "Python 3.12 was released later",
+        "reason": "The claim is confirmed, but newer version exists",
+        "source_ids": [1],
+    }
+    r = server.finalize_verdict(c, v, RESULTS)
+    assert r["verdict"] == "Outdated"
+    assert r["freshness_score"] <= 30
+    assert r["updated_fact"] == "Python 3.12 was released later"
+
+
+def test_finalize_verdict_no_flip_on_insufficient_evidence():
+    phrase = "Current evidence is insufficient to verify the claim"
+    c = claim(claim="Foo costs $10")
+    v_outdated = {
+        "verdict": "Outdated",
+        "freshness_score": 20,
+        "updated_fact": None,
+        "reason": phrase,
+        "source_ids": [1],
+    }
+    r1 = server.finalize_verdict(c, v_outdated, RESULTS)
+    assert r1["verdict"] == "Outdated"
+    assert r1["freshness_score"] <= 30
+
+    v_current = {
+        "verdict": "Current",
+        "freshness_score": 80,
+        "updated_fact": None,
+        "reason": phrase,
+        "source_ids": [1],
+    }
+    r2 = server.finalize_verdict(c, v_current, RESULTS)
+    assert r2["verdict"] == "Current"
+    assert r2["freshness_score"] >= 70
+
+
+def test_finalize_verdict_negative_context_does_not_flip_current():
+    c = claim(claim="Python 3.11 is supported")
+    v = {
+        "verdict": "Current",
+        "freshness_score": 85,
+        "updated_fact": None,
+        "reason": "Python 3.11 is not outdated and is still receiving security updates",
+        "source_ids": [1],
+    }
+    r = server.finalize_verdict(c, v, RESULTS)
+    assert r["verdict"] == "Current"
+    assert r["freshness_score"] >= 70
+
+
 # ---- BUG-3 resale evidence ----
 def test_resale_only_cannot_make_list_price_outdated():
     r = server.finalize_verdict(claim(category="price", condition="new"),
@@ -398,3 +512,42 @@ def test_check_json_mode_non_streaming(offline):
     stored = server.runs.get(data["run_id"])
     assert stored is not None
     assert stored["answer"] == ANSWER
+
+
+def test_verdict_structured_output_attempts_schema_first(monkeypatch):
+    from unittest.mock import AsyncMock, MagicMock
+    import llm_gateway
+
+    mock_client = MagicMock()
+    mock_resp = MagicMock()
+    mock_resp.choices = [MagicMock(message=MagicMock(content='{"verdict": "Outdated", "freshness_score": 20, "updated_fact": "foo", "reason": "bar", "source_ids": [1]}'))]
+    mock_resp.usage = MagicMock(prompt_tokens=15, completion_tokens=25)
+    mock_client.chat.completions.create = AsyncMock(return_value=mock_resp)
+
+    monkeypatch.setattr(llm_gateway, "_bifrost_client", lambda: mock_client)
+
+    content, p_tok, c_tok = asyncio.run(llm_gateway._call_bifrost("test-model", "sys", "prompt", stage="verdict"))
+    assert json.loads(content)["verdict"] == "Outdated"
+    assert mock_client.chat.completions.create.call_args.kwargs["response_format"] == llm_gateway.VERDICT_SCHEMA
+
+
+def test_verdict_structured_output_falls_back_when_rejected(monkeypatch):
+    from unittest.mock import AsyncMock, MagicMock
+    import llm_gateway
+
+    mock_client = MagicMock()
+    mock_resp = MagicMock()
+    mock_resp.choices = [MagicMock(message=MagicMock(content='{"verdict": "Current", "freshness_score": 80, "updated_fact": null, "reason": "ok", "source_ids": [1]}'))]
+    mock_resp.usage = MagicMock(prompt_tokens=10, completion_tokens=10)
+
+    # First call with schema raises, second call succeeds
+    mock_client.chat.completions.create = AsyncMock(side_effect=[
+        Exception("Provider does not support json_schema"),
+        mock_resp,
+    ])
+
+    monkeypatch.setattr(llm_gateway, "_bifrost_client", lambda: mock_client)
+
+    content, p_tok, c_tok = asyncio.run(llm_gateway._call_bifrost("test-model", "sys", "prompt", stage="verdict"))
+    assert json.loads(content)["verdict"] == "Current"
+    assert mock_client.chat.completions.create.call_count == 2

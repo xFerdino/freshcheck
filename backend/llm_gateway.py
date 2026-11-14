@@ -11,13 +11,45 @@ BIFROST_BASE_URL = os.environ.get("BIFROST_BASE_URL", "").strip().rstrip("/")
 
 if os.environ.get("OPENROUTER_API_KEY") and not os.environ.get("OPENAI_API_KEY"):
     _default_extract = "openrouter/nvidia/nemotron-3.5-lightning:free"
-    _default_verdict = "openrouter/nvidia/nemotron-3.5-lightning:free"
+    _default_verdict = "openrouter/nvidia/nemotron-3.5-super-vl:free"
 else:
     _default_extract = "openai/gpt-4o-mini"
     _default_verdict = "openai/gpt-4o"
 
 EXTRACT_MODEL = os.environ.get("EXTRACT_MODEL") or _default_extract
 VERDICT_MODEL = os.environ.get("VERDICT_MODEL") or _default_verdict
+
+VERDICT_SCHEMA = {
+    "type": "json_schema",
+    "json_schema": {
+        "name": "verdict_response",
+        "strict": True,
+        "schema": {
+            "type": "object",
+            "properties": {
+                "verdict": {
+                    "type": "string",
+                    "enum": ["Current", "Outdated", "Uncertain"],
+                },
+                "freshness_score": {
+                    "type": "integer",
+                },
+                "updated_fact": {
+                    "type": ["string", "null"],
+                },
+                "reason": {
+                    "type": "string",
+                },
+                "source_ids": {
+                    "type": "array",
+                    "items": {"type": "integer"},
+                },
+            },
+            "required": ["verdict", "freshness_score", "updated_fact", "reason", "source_ids"],
+            "additionalProperties": False,
+        },
+    },
+}
 
 
 def get_bifrost_base_url() -> str:
@@ -58,20 +90,41 @@ def parse_json(text: str) -> dict:
     return json.loads(m.group(0) if m else text)
 
 
-async def _call_bifrost(model: str, system: str, prompt: str):
+async def _call_bifrost(model: str, system: str, prompt: str, stage: str = None):
     kwargs = {
         "model": model,
         "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}],
-        "response_format": {"type": "json_object"},
     }
     if "openrouter" in model or "nemotron" in model or os.environ.get("OPENROUTER_API_KEY"):
         kwargs["extra_body"] = {"reasoning": {"effort": "none"}}
-    resp = await _bifrost_client().chat.completions.create(**kwargs)
+
+    client = _bifrost_client()
+
+    # For verdict calls, attempt structured output with JSON schema first
+    if stage == "verdict":
+        try:
+            schema_kwargs = dict(kwargs)
+            schema_kwargs["response_format"] = VERDICT_SCHEMA
+            resp = await client.chat.completions.create(**schema_kwargs)
+            u = resp.usage
+            return resp.choices[0].message.content, (u.prompt_tokens if u else 0), (u.completion_tokens if u else 0)
+        except Exception:
+            # Fall back to json_object or plain JSON parsing if provider rejects json_schema
+            pass
+
+    # Standard json_object format with fallback to plain JSON
+    try:
+        kwargs["response_format"] = {"type": "json_object"}
+        resp = await client.chat.completions.create(**kwargs)
+    except Exception:
+        kwargs.pop("response_format", None)
+        resp = await client.chat.completions.create(**kwargs)
+
     u = resp.usage
     return resp.choices[0].message.content, (u.prompt_tokens if u else 0), (u.completion_tokens if u else 0)
 
 
-async def _call_direct(model: str, system: str, prompt: str):
+async def _call_direct(model: str, system: str, prompt: str, stage: str = None):
     from emergentintegrations.llm.chat import LlmChat, UserMessage
     provider, name = model.split("/", 1) if "/" in model else ("openai", model)
     chat = LlmChat(api_key=os.environ["EMERGENT_LLM_KEY"], session_id=str(uuid.uuid4()), system_message=system)
@@ -90,7 +143,7 @@ async def chat_json(model: str, system: str, prompt: str, stage: str, ref: str =
     try:
         call = _call_bifrost if bifrost_url else _call_direct
         text, log["prompt_tokens"], log["completion_tokens"] = await with_retries(
-            lambda: call(model, system, prompt), llm_retryable)
+            lambda: call(model, system, prompt, stage=stage), llm_retryable)
         data = parse_json(text)
     except Exception as exc:
         log.update(status="error", error=str(exc)[:200], latency_ms=round((time.perf_counter() - start) * 1000))
