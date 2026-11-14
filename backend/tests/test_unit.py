@@ -1,5 +1,6 @@
 """Offline unit tests: fake LLM + mocked Tavily, no network."""
 import asyncio
+from datetime import datetime, timezone
 import json
 import os
 import sys
@@ -204,7 +205,8 @@ def test_find_quote_fuzzy_fallback():
 
 def test_price_query_gets_official_price():
     claims = server.build_claims([{"claim": "A costs $1", "quote": "A", "category": "price", "search_query": "A price US"}], "A costs $1")
-    assert claims[0]["search_query"].endswith("official price") and claims[0]["condition"] == "n/a"
+    assert "official price" in claims[0]["search_query"] and claims[0]["condition"] == "n/a"
+    assert datetime.now(timezone.utc).strftime("%B %Y") in claims[0]["search_query"]
 
 
 # ---- BUG-2 rewrite citations ----
@@ -348,7 +350,7 @@ def test_sse_event_order(offline):
     assert results["c1"]["verdict"] == "Outdated" and results["c2"]["verdict"] == "Current"
     assert events[-1][1]["counts"] == {"Current": 1, "Outdated": 1, "Uncertain": 0}
     assert any(e == "llm_call" and d["kind"] == "search" for e, d in events)
-    assert offline[0].endswith("official price")
+    assert "official price" in offline[0]
 
 
 def test_search_cache_marks_cached(offline):
@@ -551,3 +553,107 @@ def test_verdict_structured_output_falls_back_when_rejected(monkeypatch):
     content, p_tok, c_tok = asyncio.run(llm_gateway._call_bifrost("test-model", "sys", "prompt", stage="verdict"))
     assert json.loads(content)["verdict"] == "Current"
     assert mock_client.chat.completions.create.call_count == 2
+
+
+# ---- FRESH-1: search query refinement and RC guard ----
+def test_refine_search_query_version_strips_old_version_and_adds_month_year():
+    now = datetime(2026, 11, 14, 12, 0, tzinfo=timezone.utc)
+    cases = [
+        ("Python 3.11 release date", "Python 3.11 is the latest version", "latest stable Python release November 2026"),
+        ("Python 3.11 official price", "Python 3.11 is latest", "latest stable Python release November 2026"),
+        ("Next.js 14", "Next.js 14 is current", "latest stable Next.js release November 2026"),
+        ("React 18 official price", "React 18 is latest", "latest stable React release November 2026"),
+        ("Node.js 20 LTS release", "Node 20 LTS is active", "latest stable Node.js LTS release November 2026"),
+        ("v1.28.0 release", "Kubernetes 1.28", "latest stable Kubernetes release November 2026"),
+    ]
+    for raw_q, claim_txt, expected in cases:
+        out = server.refine_search_query("version", raw_q, claim_txt, now=now)
+        assert out == expected
+
+
+def test_refine_search_query_price_adds_official_price_and_year():
+    now = datetime(2026, 11, 14, 12, 0, tzinfo=timezone.utc)
+    cases = [
+        ("ChatGPT Plus price", "ChatGPT Plus is $20", "ChatGPT Plus official price November 2026"),
+        ("ChatGPT Plus $20 official price", "ChatGPT Plus costs $20", "ChatGPT Plus official price November 2026"),
+        ("PlayStation 5 $499 US", "PS5 costs $499", "PlayStation 5 US official price November 2026"),
+    ]
+    for raw_q, claim_txt, expected in cases:
+        out = server.refine_search_query("price", raw_q, claim_txt, now=now)
+        assert out == expected
+
+
+def test_refine_search_query_preserves_other_categories():
+    now = datetime(2026, 11, 14, 12, 0, tzinfo=timezone.utc)
+    assert server.refine_search_query("role", "who is CEO of Twitter", now=now) == "who is CEO of Twitter"
+    assert server.refine_search_query("date", "when was Python created", now=now) == "when was Python created"
+
+
+def test_finalize_verdict_rc_guard_flips_to_uncertain():
+    results = [
+        {
+            "title": "Python 3.15 Gets a Surprise RC3 and Other Python News for October 2026",
+            "url": "https://realpython.com/rc3",
+            "published_date": "2026-10-15",
+            "content": "Python 3.15 is currently in release candidate status (RC3) and not yet generally available. Python 3.14 is the latest stable version.",
+        }
+    ]
+    c = claim(claim="Python 3.11 is the latest stable release", category="version")
+    v = {
+        "verdict": "Outdated",
+        "freshness_score": 10,
+        "updated_fact": "Python 3.15 is the latest stable release",
+        "reason": "Python 3.15 has been released",
+        "source_ids": [1],
+    }
+    r = server.finalize_verdict(c, v, results)
+    assert r["verdict"] == "Uncertain"
+    assert 35 <= r["freshness_score"] <= 65
+    assert r["updated_fact"] is None
+    assert "pre-release" in r["reason"] or "RC" in r["reason"]
+
+
+def test_finalize_verdict_rc_guard_preserves_stable_version():
+    results = [
+        {
+            "title": "Python 3.14 Released as Latest Stable Version",
+            "url": "https://python.org/release-3-14",
+            "published_date": "2026-10-01",
+            "content": "Python 3.14 is the latest stable release of Python.",
+        }
+    ]
+    c = claim(claim="Python 3.11 is the latest stable release", category="version")
+    v = {
+        "verdict": "Outdated",
+        "freshness_score": 10,
+        "updated_fact": "Python 3.14 is the latest stable release",
+        "reason": "Python 3.14 is the new stable release",
+        "source_ids": [1],
+    }
+    r = server.finalize_verdict(c, v, results)
+    assert r["verdict"] == "Outdated"
+    assert r["freshness_score"] <= 30
+    assert r["updated_fact"] == "Python 3.14 is the latest stable release"
+
+
+def test_finalize_verdict_rc_guard_catches_beta_and_preview():
+    results = [
+        {
+            "title": "Next.js 16 Preview Available",
+            "url": "https://nextjs.org/blog/preview",
+            "published_date": "2026-05-01",
+            "content": "Next.js 16 is now available in beta preview.",
+        }
+    ]
+    c = claim(claim="Next.js 14 is current", category="version")
+    v = {
+        "verdict": "Outdated",
+        "freshness_score": 15,
+        "updated_fact": "Next.js 16 is current",
+        "reason": "Next.js 16 is out",
+        "source_ids": [1],
+    }
+    r = server.finalize_verdict(c, v, results)
+    assert r["verdict"] == "Uncertain"
+    assert r["updated_fact"] is None
+

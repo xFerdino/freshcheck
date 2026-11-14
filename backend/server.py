@@ -96,6 +96,7 @@ Rules:
 - verdict "Outdated" if evidence shows the fact has changed (newer version, new price, different person in role, etc).
 - If the product/service/plan has been discontinued, verdict is "Outdated" and updated_fact starts with "Discontinued:".
 - verdict "Uncertain" if evidence is missing, conflicting or insufficient.
+- For software/product version claims: pick the newest STABLE, generally available version mentioned in the sources. Ignore alpha, beta, RC, preview, canary and nightly versions for "latest stable" claims. If sources disagree, trust the most recent dated official source (python.org, nextjs.org, react.dev, nodejs.org, vendor pricing page).
 - Compare like-for-like: official/list prices from the vendor for the claim's region and condition, official release channels for versions, official announcements for roles.
 - Resale or used-marketplace evidence (Swappa, eBay, Back Market, refurbished listings) can NEVER change a new/list-price verdict; if that is all you have, verdict is "Uncertain".
 - freshness_score 0-100 measures how FRESH the claim is (not your confidence): 70-100 current, 0-30 outdated, 35-65 uncertain.
@@ -114,12 +115,15 @@ def is_resale(url: str) -> bool:
     return any(d in u for d in RESALE_DOMAINS)
 
 
-async def tavily_fetch(client: httpx.AsyncClient, query: str) -> dict:
+async def tavily_fetch(client: httpx.AsyncClient, query: str, time_range: Optional[str] = None) -> dict:
     async def once():
+        payload = {"query": query, "search_depth": "advanced", "include_answer": True, "max_results": 5}
+        if time_range:
+            payload["time_range"] = time_range
         resp = await client.post(
             TAVILY_URL,
             headers={"Authorization": f"Bearer {os.environ['TAVILY_API_KEY']}"},
-            json={"query": query, "search_depth": "advanced", "include_answer": True, "max_results": 5},
+            json=payload,
             timeout=40,
         )
         resp.raise_for_status()
@@ -127,9 +131,11 @@ async def tavily_fetch(client: httpx.AsyncClient, query: str) -> dict:
     return await with_retries(once, http_retryable)
 
 
-async def tavily_search(client: httpx.AsyncClient, query: str, emit, ref: str) -> dict:
+async def tavily_search(client: httpx.AsyncClient, query: str, emit, ref: str, category: Optional[str] = None) -> dict:
     start = time.perf_counter()
-    key = norm_query(query)
+    use_recent = category in ("version", "price")
+    time_range = "year" if use_recent else None
+    key = f"{norm_query(query)}:{time_range or 'std'}"
     log = {"kind": "search", "stage": "search", "ref": ref, "model": "tavily/advanced", "route": "tavily",
            "status": "ok", "cached": False}
     try:
@@ -137,7 +143,21 @@ async def tavily_search(client: httpx.AsyncClient, query: str, emit, ref: str) -
         if data is not None:
             log["cached"] = True
         else:
-            data = await tavily_fetch(client, query)
+            try:
+                data = await tavily_fetch(client, query, time_range=time_range)
+            except TypeError:
+                data = await tavily_fetch(client, query)
+            # If recent search returned no results, fall back to standard query without time_range
+            if use_recent and not data.get("results"):
+                std_key = f"{norm_query(query)}:std"
+                data = search_cache.get(std_key)
+                if data is None:
+                    try:
+                        data = await tavily_fetch(client, query, time_range=None)
+                    except TypeError:
+                        data = await tavily_fetch(client, query)
+                    search_cache.set(std_key, data)
+                key = std_key
             search_cache.set(key, data)
         log["results"] = len(data.get("results", []))
         return data
@@ -189,6 +209,50 @@ INSUFFICIENT_PHRASES = (
     "insufficient", "cannot be confirmed", "not enough", "inconclusive",
     "unclear", "lacks evidence", "no evidence", "not confirmed"
 )
+RC_PATTERNS = re.compile(
+    r"\b(rc\d*|release candidate|beta\d*|alpha\d*|preview|nightly)\b",
+    re.IGNORECASE,
+)
+STABLE_PATTERNS = re.compile(
+    r"\b(stable|general availability|ga|officially released|current release|current stable)\b",
+    re.IGNORECASE,
+)
+
+
+def find_prerelease_version(updated_fact: Optional[str], results: list, ids: List[int]) -> Optional[str]:
+    if not updated_fact:
+        return None
+    dotted = re.findall(r"\bv?(\d+(?:\.\d+)+)\b", updated_fact)
+    integers = [n for n in re.findall(r"\bv?(\d+)\b", updated_fact) if not (len(n) == 4 and n.startswith(("19", "20")))]
+    versions = dotted or integers
+    if not versions:
+        return None
+
+    sources_to_check = [results[i - 1] for i in ids if 1 <= i <= len(results)] if ids else results
+    if not sources_to_check:
+        return None
+
+    for v in versions:
+        v_escaped = re.escape(v)
+        found_mentions = False
+        has_prerelease = False
+        has_stable = False
+
+        for s in sources_to_check:
+            text = f"{s.get('title', '')} {s.get('content', '')}"
+            for m in re.finditer(rf"(?:\b|\D){v_escaped}(?:\b|\D)", text, re.IGNORECASE):
+                found_mentions = True
+                start = max(0, m.start() - 60)
+                end = min(len(text), m.end() + 60)
+                window = text[start:end]
+                if RC_PATTERNS.search(window):
+                    has_prerelease = True
+                if STABLE_PATTERNS.search(window):
+                    has_stable = True
+
+        if found_mentions and has_prerelease and not has_stable:
+            return v
+    return None
 
 
 def is_real_fact_change(claim: dict, updated_fact: Optional[str]) -> bool:
@@ -238,6 +302,14 @@ def finalize_verdict(claim: dict, v: dict, results: list) -> dict:
     if verdict == "Outdated" and not ids:
         verdict, reason = "Uncertain", "Flagged as outdated but no supporting evidence was cited, so it cannot be confirmed."
 
+    # 3) Guard against RC / beta / alpha / preview versions in updated_fact
+    if verdict == "Outdated" and raw_updated:
+        prerelease_v = find_prerelease_version(raw_updated, results, ids)
+        if prerelease_v:
+            verdict = "Uncertain"
+            reason = f"Version {prerelease_v} in sources is only a pre-release (RC/beta/alpha/preview), not confirmed as stable."
+            raw_updated = None
+
     sources = map_sources(results, ids or list(range(1, len(results) + 1)))
     if claim.get("category") == "price" and claim.get("condition") != "used":
         official = [s for s in sources if not is_resale(s["url"])]
@@ -259,8 +331,16 @@ def finalize_verdict(claim: dict, v: dict, results: list) -> dict:
 
 async def verify_claim(client: httpx.AsyncClient, claim: dict, today: str, generated: Optional[str], emit,
                        run_id: str = "-") -> dict:
+    query = claim.get("search_query") or claim.get("claim", "")
+    query = refine_search_query(claim.get("category", ""), query, claim.get("claim", ""))
     try:
-        data = await tavily_search(client, claim["search_query"] or claim["claim"], emit, claim["id"])
+        data = await tavily_search(
+            client,
+            query,
+            emit,
+            claim["id"],
+            category=claim.get("category"),
+        )
     except Exception as exc:
         logger.error("[run %s] Tavily failed for %s: %s", run_id, claim["id"], exc)
         return uncertain(claim, "Web search failed, so this claim could not be verified.")
@@ -303,14 +383,119 @@ def find_quote(answer: str, quote: str) -> str:
     return m.group(0) if m else ""
 
 
-def build_claims(raw: list, answer: str) -> List[dict]:
+JUNK_VERSION_PATTERNS = [
+    r"\bofficial price\b",
+    r"\bofficial pricing\b",
+    r"\bpricing\b",
+    r"\bprice\b",
+    r"\brelease dates\b",
+    r"\brelease date\b",
+    r"\blatest stable release\b",
+    r"\blatest stable version\b",
+    r"\blatest stable\b",
+    r"\blatest version\b",
+    r"\bcurrent version\b",
+    r"\bnewest version\b",
+    r"\bcurrent major version\b",
+    r"\bnewest major release\b",
+    r"\bmajor version\b",
+    r"\bmajor release\b",
+    r"\blatest\b",
+    r"\bcurrent\b",
+    r"\bnewest\b",
+    r"\bstable\b",
+    r"\bversion\b",
+    r"\bversions\b",
+    r"\breleases\b",
+    r"\brelease\b",
+    r"\breleased\b",
+    r"\bmajor\b",
+    r"\bactive\b",
+    r"\bstatus\b",
+    r"\bintroduced\b",
+    r"\bthe app router\b",
+    r"\bapp router\b",
+]
+
+STOPWORDS_PATTERN = re.compile(
+    r"\b(the|is the|is|of|for|in|and|to|with|that|most|teams|should|use|as|by|a|an)\b",
+    re.IGNORECASE,
+)
+
+MONTH_NAMES = [
+    "january", "february", "march", "april", "may", "june",
+    "july", "august", "september", "october", "november", "december"
+]
+
+
+def clean_subject_for_version(text: str) -> str:
+    cleaned = text
+    for pat in JUNK_VERSION_PATTERNS:
+        cleaned = re.sub(pat, " ", cleaned, flags=re.IGNORECASE)
+
+    for m in MONTH_NAMES:
+        cleaned = re.sub(rf"\b{m}\b", " ", cleaned, flags=re.IGNORECASE)
+
+    # Strip 4-digit years >= 1990
+    cleaned = re.sub(r"\b(19\d\d|20\d\d)\b", " ", cleaned)
+
+    # Strip version numbers: dotted (3.11.4, 3.11, v3.11) or 1-3 digit standalone (14, 18, 20, v14)
+    cleaned = re.sub(r"\bv?\d+(?:\.\d+)+\b", " ", cleaned)
+    cleaned = re.sub(r"\bv?\d{1,3}\b", " ", cleaned)
+
+    # Strip stopwords
+    cleaned = STOPWORDS_PATTERN.sub(" ", cleaned)
+
+    # Deduplicate repeated words (e.g. "React React" -> "React")
+    tokens = []
+    for t in cleaned.split():
+        if not tokens or t.lower() != tokens[-1].lower():
+            tokens.append(t)
+    cleaned = " ".join(tokens)
+
+    # Clean whitespace and stray punctuation
+    cleaned = re.sub(r"^[^\w]+|[^\w]+$", "", cleaned).strip()
+    return cleaned
+
+
+def refine_search_query(category: str, raw_query: str, claim_text: str = "", now: Optional[datetime] = None) -> str:
+    if now is None:
+        now = datetime.now(timezone.utc)
+    month_year = now.strftime("%B %Y")
+
+    if category == "version":
+        subject = clean_subject_for_version(raw_query or "")
+        if not subject and claim_text:
+            subject = clean_subject_for_version(claim_text)
+        if not subject:
+            subject = (raw_query or claim_text).strip()
+        return f"latest stable {subject} release {month_year}"
+
+    if category == "price":
+        q = (raw_query or claim_text).strip()
+        # Strip old price numbers like $20, $499, 20 USD, etc.
+        q = re.sub(r"\$\s*\d+(?:\.\d+)?", " ", q)
+        q = re.sub(r"\b\d+\s*(?:usd|dollars|eur|euro|gbp)\b", " ", q, flags=re.IGNORECASE)
+        q = " ".join(q.split())
+        if "official price" not in q.lower():
+            if re.search(r"\bprice\b", q, flags=re.IGNORECASE):
+                q = re.sub(r"\bprice\b", "official price", q, count=1, flags=re.IGNORECASE)
+            else:
+                q = f"{q} official price"
+        if str(now.year) not in q:
+            q = f"{q} {month_year}"
+        return q
+
+    return raw_query or claim_text
+
+
+def build_claims(raw: list, answer: str, now: Optional[datetime] = None) -> List[dict]:
     claims = []
     for i, c in enumerate(raw[:MAX_CLAIMS], 1):
         quote = find_quote(answer, (c.get("quote") or "").strip())
-        query = c.get("search_query") or c["claim"]
         category = c.get("category", "other")
-        if category == "price" and "official price" not in query.lower():
-            query = f"{query} official price"
+        raw_query = c.get("search_query") or c.get("claim", "")
+        query = refine_search_query(category, raw_query, c.get("claim", ""), now=now)
         condition = c.get("condition") if c.get("condition") in ("new", "used", "n/a") else "n/a"
         claims.append({"id": f"c{i}", "claim": c["claim"], "quote": quote,
                        "category": category, "region": c.get("region") or "n/a", "condition": condition,

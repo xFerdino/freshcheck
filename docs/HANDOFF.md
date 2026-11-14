@@ -40,3 +40,11 @@ Skip Phase 2 growth bets before the deadline.
 - /api/config: route bifrost, extract lightning:free, verdict nemotron-3.5-super-vl:free. 56 offline tests pass.
 - Tech versions run: all 4 claims Outdated (Python no longer shows Current; bug fixed). Verdict calls 1.2-2.4s.
 - Remaining accuracy gaps: Python correction says 3.15 is "latest stable" while its own source calls 3.15 a release candidate (should say 3.14). Next.js correction says 14 is current, which is itself stale. Likely cause: search query/sources pick older pages. Next idea: add "latest {current year}" to version search queries and tell the verdict prompt to prefer the newest stable (non-RC) version in sources.
+
+## FRESH-1 live check (14 Nov 2026, 17:18 Warsaw)
+- Query refinement: version queries strip old versions/junk and format as `latest stable <subject> release <Month> <Year>`; price queries ensure "official price" and year/month.
+- Tavily: version/price claims use `time_range="year"` with automatic fallback to standard search if 0 results.
+- Verdict prompt: instructs model with today's date to pick newest STABLE GA version and ignore alpha/beta/RC/preview/canary/nightly, preferring dated official sources.
+- Pre-release guard: `finalize_verdict` checks if updated_fact asserts a version only described in sources as RC/beta/alpha/preview, flipping to Uncertain with an honest reason.
+- Offline tests: 62 passed in backend (`cd backend && pytest -m "not live"`).
+- Live Tech versions run: Python -> 3.15.2 (verified stable in Nov 2026), React -> 19, Next.js -> 16 (no longer stale 14), Node.js -> 24 LTS. All 4 claims accurately flagged Outdated.
