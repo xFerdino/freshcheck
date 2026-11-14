@@ -7,7 +7,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl && rm -rf /var/lib/apt/lists/*
 
 # Copy Bifrost binary and configuration
-COPY --from=bifrost-bin /bifrost /usr/local/bin/bifrost
+COPY --from=bifrost-bin /app/main /usr/local/bin/bifrost
 COPY bifrost/ /app/bifrost/
 
 # Python dependencies
