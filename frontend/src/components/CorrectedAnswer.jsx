@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
-import { Copy, Download, FileText, GitCompare, Loader2, Wand2 } from "lucide-react";
+import { Check, Copy, Download, FileText, GitCompare, Loader2, Wand2 } from "lucide-react";
 import { buildMarkdown, copyText, correctedMarkdown, rewriteAnswer } from "../lib/freshcheck";
 
 function formatCitations(str) {
@@ -53,6 +53,8 @@ const Btn = ({ children, ...props }) => (
 export const CorrectedAnswer = ({ runId, text, claims, summary, meta, corrected, setCorrected, onLog }) => {
   const [loading, setLoading] = useState(false);
   const [showDiff, setShowDiff] = useState(false);
+  const [copiedCorrected, setCopiedCorrected] = useState(false);
+  const [copiedMarkdown, setCopiedMarkdown] = useState(false);
   const outdated = summary?.counts?.Outdated ?? 0;
 
   const formattedRewritten = useMemo(() => formatCitations(corrected?.rewritten), [corrected?.rewritten]);
@@ -64,13 +66,27 @@ export const CorrectedAnswer = ({ runId, text, claims, summary, meta, corrected,
       const res = await rewriteAnswer(runId, text);
       setCorrected(res);
       if (res.log) onLog(res.log);
-      await copyText(correctedMarkdown(res));
-      toast.success("Corrected answer copied to clipboard");
+      toast.success("Corrected answer generated");
     } catch (e) {
       toast.error(e.message);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCopyCorrected = async () => {
+    if (!corrected) return;
+    await copyText(correctedMarkdown(corrected));
+    setCopiedCorrected(true);
+    toast.success("Corrected answer copied to clipboard");
+    setTimeout(() => setCopiedCorrected(false), 2000);
+  };
+
+  const handleCopyMarkdown = async () => {
+    await copyText(md());
+    setCopiedMarkdown(true);
+    toast.success("Markdown report copied");
+    setTimeout(() => setCopiedMarkdown(false), 2000);
   };
 
   const md = () => buildMarkdown({ text, claims, summary, corrected, meta });
@@ -99,10 +115,11 @@ export const CorrectedAnswer = ({ runId, text, claims, summary, meta, corrected,
             className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950 transition-[background-color,transform] hover:bg-emerald-400 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
-            {corrected ? "Regenerate & copy" : "Copy corrected answer"}
+            {corrected ? "Regenerate corrected answer" : "Generate corrected answer"}
           </button>
-          <Btn onClick={async () => { await copyText(md()); toast.success("Markdown report copied"); }} data-testid="btn-copy-markdown">
-            <FileText className="w-4 h-4" /> Copy Markdown
+          <Btn onClick={handleCopyMarkdown} data-testid="btn-copy-markdown">
+            {copiedMarkdown ? <Check className="w-4 h-4 text-emerald-400" /> : <FileText className="w-4 h-4" />}
+            <span>{copiedMarkdown ? "Copied" : "Copy Markdown"}</span>
           </Btn>
           <Btn onClick={download} data-testid="btn-download-markdown">
             <Download className="w-4 h-4" /> Export .md
@@ -125,8 +142,19 @@ export const CorrectedAnswer = ({ runId, text, claims, summary, meta, corrected,
                 <GitCompare className="w-3.5 h-3.5" />
                 <span>{showDiff ? "Hide changes" : "Show changes"}</span>
               </button>
-              <button type="button" onClick={async () => { await copyText(correctedMarkdown(corrected)); toast.success("Copied"); }} data-testid="btn-copy-corrected-again" className="text-slate-400 hover:text-slate-100 p-1" title="Copy corrected text">
-                <Copy className="w-4 h-4" />
+              <button
+                type="button"
+                onClick={handleCopyCorrected}
+                data-testid="btn-copy-corrected-again"
+                className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium border transition-colors ${
+                  copiedCorrected
+                    ? "bg-emerald-500/20 text-emerald-300 border-emerald-400/40"
+                    : "bg-slate-900 border-white/10 text-slate-300 hover:text-white"
+                }`}
+                title="Copy corrected text"
+              >
+                {copiedCorrected ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copiedCorrected ? "Copied" : "Copy"}</span>
               </button>
             </div>
           </div>
