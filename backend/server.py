@@ -69,6 +69,7 @@ class RewriteRequest(BaseModel):
     run_id: str = Field(min_length=1, max_length=64)
     answer: str = Field(min_length=10, max_length=8000)
     accepted_claim_ids: Optional[List[str]] = None
+    edited_facts: Optional[dict] = None
 
 
 EXTRACT_SYSTEM = """You extract atomic, independently checkable factual claims from an AI-generated answer.
@@ -371,6 +372,10 @@ async def rewrite(req: RewriteRequest):
         raise HTTPException(status_code=404, detail="Unknown or expired check run. Run the check again.")
     if req.answer != run["answer"]:
         raise HTTPException(status_code=409, detail="This answer does not match the checked run.")
+    if req.edited_facts and isinstance(req.edited_facts, dict):
+        for cid, fact in req.edited_facts.items():
+            if cid in run["results"]:
+                run["results"][cid]["updated_fact"] = str(fact)[:MAX_FACT_CHARS]
     results = sorted(run["results"].values(), key=lambda r: int(r["id"][1:]))
     outdated = [r for r in results if r["verdict"] == "Outdated" and r.get("updated_fact")]
     if req.accepted_claim_ids is not None:

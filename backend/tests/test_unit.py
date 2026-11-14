@@ -287,6 +287,20 @@ def test_rewrite_endpoint_uses_stored_run(offline):
     assert r2.json()["changed"] is False
 
 
+def test_rewrite_with_edited_facts(offline):
+    collect(server.CheckRequest(answer=ANSWER), "stored_edit")
+    client = TestClient(server.app)
+    r = client.post("/api/rewrite", json={
+        "run_id": "stored_edit",
+        "answer": ANSWER,
+        "accepted_claim_ids": ["c1"],
+        "edited_facts": {"c1": "Product A is priced at $550 officially"}
+    })
+    assert r.status_code == 200
+    stored = server.runs.get("stored_edit")
+    assert stored["results"]["c1"]["updated_fact"] == "Product A is priced at $550 officially"
+
+
 def test_rewrite_rejects_client_supplied_claims(offline):
     client = TestClient(server.app)
     r = client.post("/api/rewrite", json={"answer": ANSWER, "claims": [{"claim": "x", "verdict": "Outdated"}]})

@@ -48,8 +48,11 @@ export const ClaimCard = ({ claim, index, runId, generatedDate, onUpdateClaim, o
   const [rechecking, setRechecking] = useState(false);
   const [editingQuery, setEditingQuery] = useState(false);
   const [queryInput, setQueryInput] = useState(claim.search_query || "");
+  const [editingFact, setEditingFact] = useState(false);
+  const [factInput, setFactInput] = useState(claim.updated_fact || "");
   const v = claim.verdict;
   const style = VERDICT_STYLES[v || "Pending"];
+  const useFix = claim.useFix !== false;
 
   const handleRecheck = async () => {
     setRechecking(true);
@@ -146,29 +149,123 @@ export const ClaimCard = ({ claim, index, runId, generatedDate, onUpdateClaim, o
       {v && (
         <div className="mt-4 space-y-4">
           {claim.updated_fact && (
-            <div className="flex gap-3 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.07] p-3.5" data-testid={`box-corrected-fact-${claim.id}`}>
-              <RefreshCw className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
-              <div>
-                <p className="text-xs font-semibold text-emerald-400 mb-1">Up-to-date fact</p>
-                <p className="text-sm text-emerald-100">{claim.updated_fact}</p>
+            <div className={`space-y-2 rounded-xl border p-3.5 transition-opacity ${useFix ? "border-emerald-500/25 bg-emerald-500/[0.07]" : "border-white/10 bg-slate-950/40 opacity-60"}`} data-testid={`box-corrected-fact-${claim.id}`}>
+              <div className="flex items-start gap-3">
+                <RefreshCw className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <p className="text-xs font-semibold text-emerald-400">Up-to-date fact</p>
+                    {!useFix && <span className="text-[11px] font-mono text-slate-400 uppercase">Ignored</span>}
+                  </div>
+                  {editingFact ? (
+                    <div className="space-y-2 pt-1">
+                      <input
+                        type="text"
+                        value={factInput}
+                        onChange={(e) => setFactInput(e.target.value)}
+                        data-testid={`input-edit-fact-${claim.id}`}
+                        className="w-full bg-slate-950 border border-emerald-500/40 rounded px-2.5 py-1 text-xs text-emerald-100 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onUpdateClaim?.({ ...claim, updated_fact: factInput.trim() });
+                            setEditingFact(false);
+                            toast.success("Fact updated");
+                          }}
+                          data-testid={`btn-save-fact-${claim.id}`}
+                          className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded px-2.5 py-1 text-xs font-semibold transition-colors"
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFactInput(claim.updated_fact || "");
+                            setEditingFact(false);
+                          }}
+                          className="border border-white/10 text-slate-400 hover:text-slate-200 rounded px-2.5 py-1 text-xs transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-emerald-100">{claim.updated_fact}</p>
+                  )}
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-white/[0.06]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextUseFix = !useFix;
+                    onUpdateClaim?.({ ...claim, useFix: nextUseFix });
+                    toast(nextUseFix ? "Fix included for rewrite" : "Fix ignored for rewrite");
+                  }}
+                  data-testid={`btn-toggle-fix-${claim.id}`}
+                  className={`inline-flex items-center gap-1 text-xs font-medium rounded-full px-2.5 py-0.5 border transition-colors ${
+                    useFix
+                      ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30"
+                      : "bg-slate-900 text-slate-400 border-white/10 hover:text-slate-200"
+                  }`}
+                >
+                  {useFix ? "✓ Use this fix" : "✕ Ignored"}
+                </button>
+                {!editingFact && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingFact(true);
+                      setFactInput(claim.updated_fact || "");
+                    }}
+                    data-testid={`btn-edit-fact-${claim.id}`}
+                    className="text-xs text-slate-400 hover:text-slate-200 underline px-1"
+                  >
+                    Edit fact
+                  </button>
+                )}
               </div>
             </div>
           )}
           <p className="text-sm text-slate-300" data-testid={`reason-${claim.id}`}>{claim.reason}</p>
-          {claim.updated_fact && (
-            <button
-              type="button"
-              onClick={async () => {
-                const src = claim.sources[0];
-                await copyText(`${claim.updated_fact}${src ? ` (Source: ${src.title} — ${src.url})` : ""}`);
-                toast.success("Corrected fact copied");
-              }}
-              data-testid={`btn-copy-fix-${claim.id}`}
-              className="inline-flex items-center gap-1.5 text-xs text-emerald-300 hover:text-emerald-200"
-            >
-              <Copy className="w-3.5 h-3.5" /> Copy fix with citation
-            </button>
-          )}
+          <div className="flex flex-wrap items-center gap-3">
+            {claim.updated_fact && (
+              <button
+                type="button"
+                onClick={async () => {
+                  const src = claim.sources[0];
+                  await copyText(`${claim.updated_fact}${src ? ` (Source: ${src.title} — ${src.url})` : ""}`);
+                  toast.success("Corrected fact copied");
+                }}
+                data-testid={`btn-copy-fix-${claim.id}`}
+                className="inline-flex items-center gap-1.5 text-xs text-emerald-300 hover:text-emerald-200"
+              >
+                <Copy className="w-3.5 h-3.5" /> Copy fix with citation
+              </button>
+            )}
+            {v && v !== "Current" && (
+              <button
+                type="button"
+                onClick={() => {
+                  onUpdateClaim?.({
+                    ...claim,
+                    verdict: "Current",
+                    freshness_score: 100,
+                    updated_fact: null,
+                    reason: "Manually marked as current by user.",
+                  });
+                  toast.success("Marked as current");
+                }}
+                data-testid={`btn-mark-current-${claim.id}`}
+                className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-emerald-300 border border-white/10 hover:border-emerald-500/30 rounded px-2.5 py-0.5 transition-colors ml-auto"
+                title="Override: treat this claim as current and up to date"
+              >
+                Mark as current
+              </button>
+            )}
+          </div>
           <div className="border-t border-white/[0.06] pt-3">
             <p className="text-xs font-medium text-slate-400 mb-2">Sources</p>
             <Sources claim={claim} />

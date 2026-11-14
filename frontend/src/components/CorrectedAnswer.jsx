@@ -63,7 +63,14 @@ export const CorrectedAnswer = ({ runId, text, claims, summary, meta, corrected,
   const generate = async () => {
     setLoading(true);
     try {
-      const res = await rewriteAnswer(runId, text);
+      const acceptedIds = claims
+        .filter((c) => c.verdict === "Outdated" && c.useFix !== false)
+        .map((c) => c.id);
+      const editedFacts = {};
+      claims.forEach((c) => {
+        if (c.updated_fact) editedFacts[c.id] = c.updated_fact;
+      });
+      const res = await rewriteAnswer(runId, text, acceptedIds, editedFacts);
       setCorrected(res);
       if (res.log) onLog(res.log);
       toast.success("Corrected answer generated");

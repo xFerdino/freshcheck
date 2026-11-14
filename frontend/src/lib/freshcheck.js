@@ -152,13 +152,18 @@ export async function fetchConfig() {
   return res.json();
 }
 
-export async function rewriteAnswer(runId, answer) {
+export async function rewriteAnswer(runId, answer, acceptedClaimIds = null, editedFacts = null) {
   let res;
   try {
     res = await fetch(`${API}/rewrite`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ run_id: runId, answer }),
+      body: JSON.stringify({
+        run_id: runId,
+        answer,
+        accepted_claim_ids: acceptedClaimIds,
+        edited_facts: editedFacts,
+      }),
     });
   } catch (err) {
     throw new Error("Lost connection — your text is safe, try again.");
