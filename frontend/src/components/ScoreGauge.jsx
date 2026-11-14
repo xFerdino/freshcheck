@@ -12,7 +12,7 @@ export const ScoreGauge = ({ score, counts, running, filter, onSelectFilter, che
   const totalClaims = counts ? (counts.Current || 0) + (counts.Outdated || 0) + (counts.Uncertain || 0) : 0;
 
   return (
-    <div className="md:col-span-5 lg:col-span-4 nm-flat rounded-3xl p-6 sm:p-7 flex flex-col items-center justify-center text-center relative overflow-hidden" data-testid="gauge-overall-score">
+    <div className="md:col-span-5 lg:col-span-5 nm-flat rounded-3xl p-6 sm:p-7 flex flex-col items-center justify-center text-center relative overflow-hidden" data-testid="gauge-overall-score">
       <p className="relative font-mono text-xs uppercase tracking-wider text-slate-500 font-bold mb-3">Overall freshness</p>
       <div className="relative w-56 max-w-full flex items-center justify-center">
         <svg viewBox="0 0 200 115" className="w-full">
@@ -59,8 +59,8 @@ export const ScoreGauge = ({ score, counts, running, filter, onSelectFilter, che
         })}
       </div>
       <div className="relative mt-5 pt-3.5 border-t border-white/60 text-center w-full space-y-1" data-testid="trust-cue">
-        <p className="text-xs text-slate-600 font-medium">Every verdict links to live sources. No source → Uncertain.</p>
-        <p className="text-[11px] font-mono text-slate-400">
+        <p className="text-xs text-slate-600 font-medium whitespace-normal break-words leading-relaxed">Every verdict links to live sources. No source → Uncertain.</p>
+        <p className="text-[11px] font-mono text-slate-400 whitespace-normal break-words">
           Checked {new Date().toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}{checkedAt ? ` ${checkedAt}` : ""} · Live search
         </p>
       </div>

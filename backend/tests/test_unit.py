@@ -657,3 +657,49 @@ def test_finalize_verdict_rc_guard_catches_beta_and_preview():
     assert r["verdict"] == "Uncertain"
     assert r["updated_fact"] is None
 
+
+def test_is_mostly_english_accepts_english_pages():
+    eng_source = {
+        "title": "Next.js 15 is now generally available",
+        "url": "https://nextjs.org/blog/next-15",
+        "content": "Today we are excited to introduce Next.js 15 with React 19 support and performance improvements.",
+    }
+    assert server.is_mostly_english(eng_source) is True
+
+
+def test_is_mostly_english_rejects_german_pages():
+    german_source = {
+        "title": "Next.js 14 veröffentlicht: Das sind die Neuerungen",
+        "url": "https://heise.de/news/Next-js-14-veroeffentlicht-934567.html",
+        "content": "Vercel hat die neue Version des Frameworks freigegeben. Zu den wichtigsten Änderungen gehört...",
+    }
+    assert server.is_mostly_english(german_source) is False
+
+
+def test_filter_english_sources_drops_non_english():
+    eng_source = {
+        "title": "Next.js 15 is now generally available",
+        "url": "https://nextjs.org/blog/next-15",
+        "content": "Today we are excited to introduce Next.js 15 with React 19 support.",
+    }
+    german_source = {
+        "title": "Next.js 14 veröffentlicht: Das sind die Neuerungen",
+        "url": "https://heise.de/news/Next-js-14-veroeffentlicht-934567.html",
+        "content": "Vercel hat die neue Version des Frameworks freigegeben. Zu den wichtigsten Änderungen gehört...",
+    }
+    filtered = server.filter_english_sources([eng_source, german_source])
+    assert len(filtered) == 1
+    assert filtered[0]["url"] == eng_source["url"]
+
+
+def test_filter_english_sources_keeps_at_least_one_when_only_non_english():
+    german_source = {
+        "title": "Next.js 14 veröffentlicht: Das sind die Neuerungen",
+        "url": "https://heise.de/news/Next-js-14-veroeffentlicht-934567.html",
+        "content": "Vercel hat die neue Version des Frameworks freigegeben. Zu den wichtigsten Änderungen gehört...",
+    }
+    filtered = server.filter_english_sources([german_source])
+    assert len(filtered) == 1
+    assert filtered[0]["url"] == german_source["url"]
+
+

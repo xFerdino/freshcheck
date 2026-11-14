@@ -22,7 +22,7 @@ const VERDICT_GLYPHS = {
 export const HighlightedAnswer = ({ text, claims }) => {
   const segments = buildSegments(text, claims);
   return (
-    <div className="md:col-span-7 lg:col-span-8 nm-flat rounded-3xl p-6 sm:p-7 flex flex-col gap-4" data-testid="panel-highlighted-answer">
+    <div className="md:col-span-7 lg:col-span-7 nm-flat rounded-3xl p-6 sm:p-7 flex flex-col gap-4" data-testid="panel-highlighted-answer">
       <div className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-white/60">
         <h2 className="text-xl font-bold font-display text-slate-900">Original answer</h2>
         <div className="flex flex-wrap gap-2.5 text-xs font-semibold">

@@ -115,6 +115,69 @@ def is_resale(url: str) -> bool:
     return any(d in u for d in RESALE_DOMAINS)
 
 
+ENGLISH_STOPWORDS = {
+    "the", "and", "is", "of", "to", "in", "for", "with", "on", "as", "at",
+    "by", "from", "that", "this", "are", "it", "an", "be", "was", "has", "have",
+    "releases", "version", "release", "new", "support", "features"
+}
+
+NON_ENGLISH_STOPWORDS = {
+    # German
+    "der", "die", "das", "und", "ist", "nicht", "von", "mit", "für", "auf", "eine",
+    "einer", "einem", "einen", "den", "dem", "des", "sich", "auch", "zu", "im", "aus",
+    "nach", "wie", "neuerungen", "veröffentlicht", "über",
+    # French
+    "le", "la", "les", "et", "est", "des", "du", "une", "pour", "dans", "sur",
+    # Spanish
+    "el", "la", "los", "las", "en", "del", "por", "con", "para", "una",
+}
+
+NON_ENGLISH_TLDS = {".de", ".fr", ".es", ".it", ".ru", ".cn", ".jp", ".pl", ".nl"}
+
+
+def is_mostly_english(result: dict) -> bool:
+    url = (result.get("url") or "").lower()
+    title = (result.get("title") or "").lower()
+    content = (result.get("content") or "")[:800].lower()
+
+    # Check URL TLD or language path
+    for tld in NON_ENGLISH_TLDS:
+        if f"{tld}/" in url or url.endswith(tld):
+            return False
+    if "/de/" in url or "/de-de/" in url or "/fr/" in url or "/es/" in url:
+        return False
+
+    text = f"{title} {content}"
+    words = re.findall(r"\b[a-zäöüßéèàáíóúñ]+\b", text)
+    if not words:
+        return True
+
+    en_count = sum(1 for w in words if w in ENGLISH_STOPWORDS)
+    non_en_count = sum(1 for w in words if w in NON_ENGLISH_STOPWORDS)
+
+    non_ascii_count = len(re.findall(r"[^\x00-\x7F]", text))
+    if non_ascii_count > 15 and non_en_count > en_count:
+        return False
+
+    if non_en_count > 0 and non_en_count >= en_count:
+        return False
+
+    return True
+
+
+def filter_english_sources(results: list[dict]) -> list[dict]:
+    """Prefers English results, skipping or ranking down mostly non-English pages.
+    Keeps at least 1 source if only non-English sources exist.
+    """
+    if not results:
+        return []
+    english = [r for r in results if is_mostly_english(r)]
+    if english:
+        return english
+    # Keep at least 1 source if only non-English exists
+    return results[:1]
+
+
 async def tavily_fetch(client: httpx.AsyncClient, query: str, time_range: Optional[str] = None) -> dict:
     async def once():
         payload = {"query": query, "search_depth": "advanced", "include_answer": True, "max_results": 5}
@@ -345,6 +408,7 @@ async def verify_claim(client: httpx.AsyncClient, claim: dict, today: str, gener
         logger.error("[run %s] Tavily failed for %s: %s", run_id, claim["id"], exc)
         return uncertain(claim, "Web search failed, so this claim could not be verified.")
     results = [r for r in data.get("results", []) if r.get("url")]
+    results = filter_english_sources(results)
     if not results:
         return uncertain(claim, "No web evidence was found for this claim.")
     evidence = "\n\n".join(

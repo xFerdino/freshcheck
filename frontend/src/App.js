@@ -323,7 +323,7 @@ export default function App() {
   return (
     <div className="App relative overflow-x-hidden min-h-screen bg-[var(--nm-bg)]">
       <Toaster theme="light" position="top-center" />
-      <main className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8">
+      <main className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8 pb-28 sm:pb-36">
         <Header collapsed={hasRun} onOpenHistory={() => setHistoryOpen(true)} historyCount={historyCount} onRunDemo={onRunDemo} onPasteOwn={onPasteOwn} />
         {shared && <SharedBanner summary={summary} total={claims.length} timestamp={shared.timestamp} onCheckOwn={exitShared} />}
         {!shared && <InputPanel answer={answer} setAnswer={setAnswer} date={date} setDate={setDate} onCheck={onCheck} onReset={onReset} onCancel={onCancel} running={running} />}
@@ -349,7 +349,7 @@ export default function App() {
         {summary && claims.length > 0 && !running && (
           <div className="flex flex-wrap items-center justify-between gap-3" data-testid="results-toolbar">
             <h2 className="text-xl font-bold font-display text-slate-900">{shared ? "The report" : "Your report"}</h2>
-            <ShareButton report={{ answer: checkedText, date, claims, corrected, timestamp: shared?.timestamp }} />
+            {!shared && <ShareButton report={{ answer: checkedText, date, claims, corrected, timestamp: shared?.timestamp }} />}
           </div>
         )}
         {showResults && (
@@ -419,10 +419,10 @@ export default function App() {
         )}
         {summary && claims.length > 0 && (
           <CorrectedAnswer runId={meta?.run_id} text={checkedText} date={date} claims={claims} summary={summary} meta={meta}
-            corrected={corrected} setCorrected={setCorrected} onLog={(l) => setLogs((ls) => [...ls, l])} />
+            corrected={corrected} setCorrected={setCorrected} onLog={(l) => setLogs((ls) => [...ls, l])} shared={Boolean(shared)} />
         )}
-        {summary && !shared && (summary.counts?.Outdated > 0 || claims.some((c) => c.verdict === "Outdated")) && (
-          <aside className="fixed bottom-6 right-6 z-30" aria-label="Quick jump to corrections">
+        {summary && !shared && !corrected && (summary.counts?.Outdated > 0 || claims.some((c) => c.verdict === "Outdated")) && (
+          <aside className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-30 max-w-[calc(100vw-2rem)]" aria-label="Quick jump to corrections">
             <button
               type="button"
               onClick={() => {

@@ -2,43 +2,12 @@ import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { Check, Copy, Download, FileText, GitCompare, Loader2, Wand2 } from "lucide-react";
 import { buildMarkdown, copyText, correctedMarkdown, rewriteAnswer } from "../lib/freshcheck";
+import { computeWordDiff } from "../lib/diff";
 import { ShareButton } from "./ShareButton";
 
 function formatCitations(str) {
   if (!str) return "";
   return str.replace(/([^\s[])(\[\d+\])/g, "$1 $2").replace(/(\[\d+\])(\[\d+\])/g, "$1 $2");
-}
-
-function computeWordDiff(origText, newText) {
-  const words1 = (origText || "").match(/\S+|\s+/g) || [];
-  const words2 = (newText || "").match(/\S+|\s+/g) || [];
-  const n = words1.length;
-  const m = words2.length;
-  const dp = Array.from({ length: n + 1 }, () => new Uint16Array(m + 1));
-  for (let i = 0; i < n; i++) {
-    for (let j = 0; j < m; j++) {
-      if (words1[i] === words2[j]) {
-        dp[i + 1][j + 1] = dp[i][j] + 1;
-      } else {
-        dp[i + 1][j + 1] = Math.max(dp[i + 1][j], dp[i][j + 1]);
-      }
-    }
-  }
-  let i = n, j = m;
-  const ops = [];
-  while (i > 0 || j > 0) {
-    if (i > 0 && j > 0 && words1[i - 1] === words2[j - 1]) {
-      ops.push({ type: "same", text: words1[i - 1] });
-      i--; j--;
-    } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
-      ops.push({ type: "add", text: words2[j - 1] });
-      j--;
-    } else if (i > 0 && (j === 0 || dp[i][j - 1] < dp[i - 1][j])) {
-      ops.push({ type: "del", text: words1[i - 1] });
-      i--;
-    }
-  }
-  return ops.reverse();
 }
 
 const Btn = ({ children, ...props }) => (
@@ -51,7 +20,7 @@ const Btn = ({ children, ...props }) => (
   </button>
 );
 
-export const CorrectedAnswer = ({ runId, text, date, claims, summary, meta, corrected, setCorrected, onLog }) => {
+export const CorrectedAnswer = ({ runId, text, date, claims, summary, meta, corrected, setCorrected, onLog, shared }) => {
   const [loading, setLoading] = useState(false);
   const [showDiff, setShowDiff] = useState(false);
   const [copiedCorrected, setCopiedCorrected] = useState(false);
@@ -128,7 +97,7 @@ export const CorrectedAnswer = ({ runId, text, date, claims, summary, meta, corr
             {corrected ? "Regenerate corrected answer" : "Generate corrected answer"}
           </button>
           )}
-          <ShareButton variant="secondary" report={{ answer: text, date, claims, corrected }} />
+          {!shared && <ShareButton variant="secondary" report={{ answer: text, date, claims, corrected }} />}
           <Btn onClick={handleCopyMarkdown} data-testid="btn-copy-markdown">
             {copiedMarkdown ? <Check className="w-4 h-4 text-emerald-600" /> : <FileText className="w-4 h-4 text-indigo-600" />}
             <span>{copiedMarkdown ? "Copied" : "Copy Markdown"}</span>
