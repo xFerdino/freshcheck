@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import "@/App.css";
 import { Toaster, toast } from "sonner";
-import { AlertTriangle, History as HistoryIcon, Radar, RefreshCw } from "lucide-react";
-import { MAX_CHARS, fetchConfig, streamCheck } from "./lib/freshcheck";
+import { AlertTriangle, ClipboardPaste, History as HistoryIcon, Play, Radar, RefreshCw } from "lucide-react";
+import { EXAMPLES, MAX_CHARS, fetchConfig, streamCheck } from "./lib/freshcheck";
 import { InputPanel } from "./components/InputPanel";
+import { ProofDemo } from "./components/ProofDemo";
 import { LiveProgress } from "./components/LiveProgress";
 import { ScoreGauge } from "./components/ScoreGauge";
 import { HighlightedAnswer } from "./components/HighlightedAnswer";
@@ -13,7 +14,7 @@ import { CorrectedAnswer } from "./components/CorrectedAnswer";
 import { EmptyState, ErrorState, Footer } from "./components/States";
 import { HistoryDrawer, loadHistory, saveHistoryEntry } from "./components/History";
 
-const Header = ({ collapsed, onOpenHistory, historyCount }) => (
+const Header = ({ collapsed, onOpenHistory, historyCount, onRunDemo, onPasteOwn }) => (
   <header className="space-y-3 pt-2">
     <div className="flex items-center justify-between gap-3">
       <div className="flex items-center gap-3">
@@ -42,13 +43,37 @@ const Header = ({ collapsed, onOpenHistory, historyCount }) => (
       </button>
     </div>
     {!collapsed && (
-      <div className="space-y-1.5 pt-1">
-        <h1 className="font-display text-2xl sm:text-4xl font-extrabold tracking-tight text-slate-900 max-w-3xl leading-snug" data-testid="hero-tagline">
-          Catch <span className="text-rose-600">stale</span> AI answers before your users do.
-        </h1>
-        <p className="text-sm sm:text-base text-slate-600 max-w-2xl leading-relaxed">
-          Paste any AI-generated answer. FreshCheck pulls out every checkable fact, verifies it against the live web, and hands you a corrected, cited version.
-        </p>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center pt-4 sm:pt-6">
+        <div className="lg:col-span-5 space-y-5">
+          <h1 className="font-display text-3xl sm:text-5xl font-extrabold tracking-tight text-slate-900 leading-[1.08]" data-testid="hero-tagline">
+            Catch <span className="text-rose-600">stale</span> AI answers before your users do.
+          </h1>
+          <p className="text-base sm:text-lg text-slate-600 leading-relaxed">
+            Every checkable fact, verified on the live web. Outdated ones come back fixed, with real sources.
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={onRunDemo}
+              data-testid="btn-run-demo-live"
+              className="nm-btn-primary inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-bold"
+            >
+              <Play className="w-4 h-4" /> Run this example live
+            </button>
+            <button
+              type="button"
+              onClick={onPasteOwn}
+              data-testid="btn-paste-own"
+              className="nm-btn inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold text-slate-700"
+            >
+              <ClipboardPaste className="w-4 h-4 text-indigo-600" /> Paste your own
+            </button>
+          </div>
+          <p className="text-xs text-slate-500">Free · no sign-up · sources are never invented</p>
+        </div>
+        <div className="lg:col-span-7">
+          <ProofDemo />
+        </div>
       </div>
     )}
   </header>
@@ -128,20 +153,33 @@ export default function App() {
     setCheckedAt(null);
   };
 
-  const onCheck = async () => {
-    if (answer.length > MAX_CHARS) { toast.error("Answer is too long (max 8,000 characters)"); return; }
+  const onCheck = async (textArg) => {
+    const text = typeof textArg === "string" ? textArg : answer;
+    if (text.length > MAX_CHARS) { toast.error("Answer is too long (max 8,000 characters)"); return; }
     setHasRun(true);
-    clearResults(); setRunning(true); setStage("extracting"); setCheckedText(answer);
-    currentRunRef.current = { claims: [], meta: null, summary: null, answer, date };
+    clearResults(); setRunning(true); setStage("extracting"); setCheckedText(text);
+    currentRunRef.current = { claims: [], meta: null, summary: null, answer: text, date };
     setCheckedAt(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
     abortRef.current = new AbortController();
     try {
-      await streamCheck({ answer, generatedDate: date, onEvent, signal: abortRef.current.signal });
+      await streamCheck({ answer: text, generatedDate: date, onEvent, signal: abortRef.current.signal });
     } catch (e) {
       if (e.name !== "AbortError") { setError(e.message || "Check failed"); toast.error(e.message || "Check failed"); }
     } finally {
       setRunning(false); setStage(null);
     }
+  };
+
+  const onRunDemo = () => {
+    const text = EXAMPLES[0].text;
+    setAnswer(text);
+    onCheck(text);
+  };
+
+  const onPasteOwn = () => {
+    const el = document.getElementById("input-answer-textarea");
+    el?.focus();
+    el?.scrollIntoView({ block: "center", behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   };
 
   const onCancel = () => {
@@ -239,7 +277,7 @@ export default function App() {
     <div className="App relative overflow-x-hidden min-h-screen bg-[var(--nm-bg)]">
       <Toaster theme="light" position="top-center" />
       <main className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8">
-        <Header collapsed={hasRun} onOpenHistory={() => setHistoryOpen(true)} historyCount={historyCount} />
+        <Header collapsed={hasRun} onOpenHistory={() => setHistoryOpen(true)} historyCount={historyCount} onRunDemo={onRunDemo} onPasteOwn={onPasteOwn} />
         <InputPanel answer={answer} setAnswer={setAnswer} date={date} setDate={setDate} onCheck={onCheck} onReset={onReset} onCancel={onCancel} running={running} />
         {running && <LiveProgress stage={stage} claims={claims} />}
         {error && !running && <ErrorState message={error} onRetry={onCheck} />}
