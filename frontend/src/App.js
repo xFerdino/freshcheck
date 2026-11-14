@@ -14,40 +14,42 @@ import { EmptyState, ErrorState, Footer } from "./components/States";
 import { HistoryDrawer, loadHistory, saveHistoryEntry } from "./components/History";
 
 const Header = ({ collapsed, onOpenHistory, historyCount }) => (
-  <header className="space-y-2 pt-2">
-    <div className="flex items-center justify-between gap-2.5">
-      <div className="flex items-center gap-2.5">
-        <span className="grid place-items-center w-8 h-8 rounded-xl bg-indigo-500/15 border border-indigo-400/30">
-          <Radar className="w-4 h-4 text-indigo-300" />
+  <header className="space-y-3 pt-2">
+    <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center gap-3">
+        <span className="grid place-items-center w-10 h-10 rounded-2xl nm-flat-sm text-indigo-600">
+          <Radar className="w-5 h-5" />
         </span>
-        <span className="font-display text-xl font-bold tracking-tight" data-testid="brand-name">FreshCheck</span>
-        <span className="hidden sm:inline text-xs text-slate-500 font-mono">stale-answer detector</span>
+        <div className="flex items-baseline gap-2">
+          <span className="font-display text-2xl font-extrabold tracking-tight text-slate-900" data-testid="brand-name">FreshCheck</span>
+          <span className="hidden sm:inline text-xs text-slate-500 font-mono tracking-wide">stale-answer detector</span>
+        </div>
       </div>
       <button
         type="button"
         onClick={onOpenHistory}
         data-testid="btn-open-history"
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/[0.08] bg-slate-900/80 hover:bg-slate-800 text-xs font-medium text-slate-300 hover:text-white transition-colors"
+        className="nm-btn inline-flex items-center gap-2 px-3.5 py-2 rounded-full text-xs font-semibold text-slate-700 hover:text-slate-900 transition-all"
         aria-label="Open check history"
       >
-        <HistoryIcon className="w-3.5 h-3.5 text-indigo-400" />
+        <HistoryIcon className="w-3.5 h-3.5 text-indigo-600" />
         <span>History</span>
         {historyCount > 0 && (
-          <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 text-[10px] font-mono leading-none">
+          <span className="ml-0.5 px-2 py-0.5 rounded-full nm-inset-sm text-indigo-600 text-[10px] font-mono font-bold leading-none">
             {historyCount}
           </span>
         )}
       </button>
     </div>
     {!collapsed && (
-      <>
-        <h1 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-50 max-w-3xl leading-snug" data-testid="hero-tagline">
-          Catch <span className="text-rose-400">stale</span> AI answers before your users do.
+      <div className="space-y-1.5 pt-1">
+        <h1 className="font-display text-2xl sm:text-4xl font-extrabold tracking-tight text-slate-900 max-w-3xl leading-snug" data-testid="hero-tagline">
+          Catch <span className="text-rose-600">stale</span> AI answers before your users do.
         </h1>
-        <p className="text-sm sm:text-base text-slate-400 max-w-2xl">
+        <p className="text-sm sm:text-base text-slate-600 max-w-2xl leading-relaxed">
           Paste any AI-generated answer. FreshCheck pulls out every checkable fact, verifies it against the live web, and hands you a corrected, cited version.
         </p>
-      </>
+      </div>
     )}
   </header>
 );
@@ -234,10 +236,8 @@ export default function App() {
     : sortedClaims.filter((c) => c.verdict === verdictFilter);
 
   return (
-    <div className="App grain relative overflow-x-hidden">
-      <div className="glow-orb bg-indigo-600 -top-40 -left-40" />
-      <div className="glow-orb bg-rose-600 top-1/2 -right-60" />
-      <Toaster theme="dark" position="top-center" />
+    <div className="App relative overflow-x-hidden min-h-screen bg-[var(--nm-bg)]">
+      <Toaster theme="light" position="top-center" />
       <main className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8">
         <Header collapsed={hasRun} onOpenHistory={() => setHistoryOpen(true)} historyCount={historyCount} />
         <InputPanel answer={answer} setAnswer={setAnswer} date={date} setDate={setDate} onCheck={onCheck} onReset={onReset} onCancel={onCancel} running={running} />
@@ -245,16 +245,16 @@ export default function App() {
         {error && !running && <ErrorState message={error} onRetry={onCheck} />}
         {!running && !error && !showResults && <EmptyState />}
         {isStale && (
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/[0.08] px-4 py-3 text-sm text-amber-200" data-testid="stale-results-banner">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
-              <span>Text changed since this check was run.</span>
+          <div className="nm-flat flex flex-wrap items-center justify-between gap-3 rounded-2xl border-l-4 border-l-amber-500 px-5 py-4 text-sm text-slate-800" data-testid="stale-results-banner">
+            <div className="flex items-center gap-2.5">
+              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+              <span className="font-medium">Text changed since this check was run.</span>
             </div>
             <button
               type="button"
               onClick={onCheck}
               data-testid="btn-recheck-stale"
-              className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 px-3 py-1 text-xs font-semibold text-amber-100 transition-colors"
+              className="nm-btn inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold text-amber-800 hover:text-amber-900"
             >
               <RefreshCw className="w-3.5 h-3.5" /> Re-check
             </button>
@@ -274,15 +274,15 @@ export default function App() {
           </section>
         )}
         {summary && claims.length === 0 && (
-          <p className="text-slate-400" data-testid="no-claims-message">No checkable factual claims were found in this answer.</p>
+          <p className="text-slate-500 font-medium" data-testid="no-claims-message">No checkable factual claims were found in this answer.</p>
         )}
         {showResults && claims.length > 0 && (
           <section className="space-y-4" data-testid="claims-list">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold text-slate-100">
-                Claims <span className="font-mono text-sm text-slate-500">({displayedClaims.length}{verdictFilter !== "all" ? ` of ${claims.length}` : ""})</span>
+              <h2 className="text-xl font-bold font-display text-slate-900">
+                Claims <span className="font-mono text-sm font-normal text-slate-500">({displayedClaims.length}{verdictFilter !== "all" ? ` of ${claims.length}` : ""})</span>
               </h2>
-              <div className="inline-flex flex-wrap rounded-lg bg-slate-950/80 border border-white/[0.08] p-1 text-xs" data-testid="claims-filter">
+              <div className="nm-inset-sm inline-flex flex-wrap rounded-xl p-1 text-xs gap-1" data-testid="claims-filter">
                 {[
                   ["all", `All (${claims.length})`],
                   ["Outdated", `Outdated (${summary?.counts?.Outdated ?? claims.filter((c) => c.verdict === "Outdated").length})`],
@@ -294,8 +294,10 @@ export default function App() {
                     type="button"
                     onClick={() => setVerdictFilter(key)}
                     data-testid={`filter-${key.toLowerCase()}`}
-                    className={`px-2.5 py-1 rounded-md font-medium transition-colors ${
-                      verdictFilter === key ? "bg-indigo-500 text-white shadow" : "text-slate-400 hover:text-slate-200"
+                    className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                      verdictFilter === key
+                        ? "nm-flat-sm text-indigo-700 bg-white"
+                        : "text-slate-600 hover:text-slate-900"
                     }`}
                   >
                     {label}
@@ -304,11 +306,11 @@ export default function App() {
               </div>
             </div>
             {truncation && (
-              <p className="rounded-xl border border-amber-500/30 bg-amber-500/[0.07] px-4 py-2.5 text-sm text-amber-200" data-testid="truncation-notice">
+              <p className="nm-flat rounded-xl border-l-4 border-l-amber-500 px-4 py-2.5 text-sm text-amber-800" data-testid="truncation-notice">
                 Checked the first {truncation.shown} of {truncation.total} claims. Split the answer to check the rest.
               </p>
             )}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
               {displayedClaims.map((c, i) => (
                 <ClaimCard
                   key={c.id}
@@ -328,7 +330,7 @@ export default function App() {
             corrected={corrected} setCorrected={setCorrected} onLog={(l) => setLogs((ls) => [...ls, l])} />
         )}
         {summary && (summary.counts?.Outdated > 0 || claims.some((c) => c.verdict === "Outdated")) && (
-          <aside className="fixed bottom-5 right-5 z-30" aria-label="Quick jump to corrections">
+          <aside className="fixed bottom-6 right-6 z-30" aria-label="Quick jump to corrections">
             <button
               type="button"
               onClick={() => {
@@ -336,10 +338,10 @@ export default function App() {
                 document.getElementById("fix-and-share")?.scrollIntoView({ behavior: prefersReduced ? "auto" : "smooth" });
               }}
               data-testid="btn-jump-fix"
-              className="inline-flex items-center gap-2 rounded-full bg-rose-500 hover:bg-rose-400 text-white px-4 py-2.5 text-xs sm:text-sm font-semibold shadow-xl shadow-rose-500/30 transition-transform active:scale-95"
+              className="nm-btn-danger inline-flex items-center gap-2 rounded-full px-5 py-3 text-xs sm:text-sm font-bold shadow-xl transition-all"
             >
               <span>Fix {summary.counts?.Outdated ?? claims.filter((c) => c.verdict === "Outdated").length} outdated fact{((summary.counts?.Outdated ?? claims.filter((c) => c.verdict === "Outdated").length) > 1 ? "s" : "")}</span>
-              <span aria-hidden="true">↓</span>
+              <span aria-hidden="true" className="text-base font-bold">↓</span>
             </button>
           </aside>
         )}

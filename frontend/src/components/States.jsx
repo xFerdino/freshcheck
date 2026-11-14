@@ -7,23 +7,25 @@ const STEPS = [
 ];
 
 export const EmptyState = () => (
-  <details className="group rounded-xl border border-white/[0.08] bg-slate-900/40 px-4 py-3 text-xs text-slate-400" data-testid="empty-state">
-    <summary className="cursor-pointer font-medium text-slate-300 hover:text-slate-100 flex items-center justify-between select-none list-none">
-      <span className="flex items-center gap-2">
-        <ListChecks className="w-3.5 h-3.5 text-indigo-400" />
+  <details className="group rounded-3xl nm-flat p-5 sm:p-6 text-xs text-slate-600 transition-all" data-testid="empty-state">
+    <summary className="cursor-pointer font-bold text-slate-800 hover:text-indigo-600 flex items-center justify-between select-none list-none">
+      <span className="flex items-center gap-2 text-sm">
+        <ListChecks className="w-4 h-4 text-indigo-600" />
         How FreshCheck works
       </span>
-      <span className="text-slate-500 group-open:rotate-180 transition-transform">▾</span>
+      <span className="text-slate-500 group-open:rotate-180 transition-transform font-bold">▾</span>
     </summary>
-    <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-4 pt-3 border-t border-white/[0.06]">
+    <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-5 pt-4 border-t border-white/60">
       {STEPS.map(({ icon: Icon, title, text }, i) => (
-        <div key={title} className="space-y-1">
-          <div className="flex items-center gap-1.5 font-medium text-slate-200">
-            <span className="font-mono text-indigo-400 text-xs">0{i + 1}</span>
-            <Icon className="w-3.5 h-3.5 text-indigo-300" />
+        <div key={title} className="space-y-2">
+          <div className="flex items-center gap-2 font-bold text-slate-900 text-sm">
+            <span className="w-6 h-6 rounded-lg nm-inset-sm flex items-center justify-center font-mono text-indigo-700 text-xs">
+              0{i + 1}
+            </span>
+            <Icon className="w-4 h-4 text-indigo-600" />
             <span>{title}</span>
           </div>
-          <p className="text-slate-400 leading-relaxed">{text}</p>
+          <p className="text-slate-600 leading-relaxed font-normal">{text}</p>
         </div>
       ))}
     </div>
@@ -31,28 +33,35 @@ export const EmptyState = () => (
 );
 
 export const ErrorState = ({ message, onRetry }) => (
-  <section className="flex flex-col sm:flex-row sm:items-center gap-4 rounded-2xl border border-rose-500/30 bg-rose-500/[0.07] p-5" data-testid="error-state">
-    <AlertTriangle className="w-6 h-6 text-rose-400 shrink-0" />
+  <section className="flex flex-col sm:flex-row sm:items-center gap-4 rounded-3xl nm-flat border-l-4 border-l-rose-500 p-6 text-slate-800" data-testid="error-state">
+    <AlertTriangle className="w-6 h-6 text-rose-600 shrink-0" />
     <div className="flex-1">
-      <p className="font-semibold text-rose-200">The check couldn't finish</p>
-      <p className="text-sm text-rose-200/70" data-testid="error-message">{message}</p>
+      <p className="font-bold text-rose-900 text-base">The check couldn't finish</p>
+      <p className="text-sm text-rose-800/80 font-medium" data-testid="error-message">{message}</p>
     </div>
-    <button type="button" onClick={onRetry} data-testid="btn-retry" className="inline-flex items-center gap-2 rounded-full border border-rose-400/40 px-4 py-2 text-sm text-rose-100 hover:bg-rose-500/15 transition-colors">
+    <button
+      type="button"
+      onClick={onRetry}
+      data-testid="btn-retry"
+      className="nm-btn inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold text-rose-700 hover:text-rose-800 transition-all"
+    >
       <RotateCw className="w-4 h-4" /> Try again
     </button>
   </section>
 );
 
 export const Footer = ({ config }) => (
-  <footer className="pt-6 pb-2 flex flex-wrap items-center gap-3 text-xs text-slate-600 font-mono">
+  <footer className="pt-8 pb-4 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500 font-mono">
     <span
       data-testid="route-badge"
       title={config ? `extract: ${config.extract_model} · verdict: ${config.verdict_model}` : ""}
-      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 ${config?.route === "bifrost" ? "border-sky-400/40 text-sky-300 bg-sky-500/10" : "border-white/10 text-slate-400"}`}
+      className={`nm-pill inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full font-semibold ${
+        config?.route === "bifrost" ? "text-sky-800 bg-sky-50" : "text-slate-700"
+      }`}
     >
-      <span className={`w-1.5 h-1.5 rounded-full ${config?.route === "bifrost" ? "bg-sky-400" : "bg-slate-500"}`} />
+      <span className={`w-2 h-2 rounded-full ${config?.route === "bifrost" ? "bg-sky-500" : "bg-slate-400"}`} />
       {config ? (config.route === "bifrost" ? "Routed via Bifrost" : "Direct") : "…"}
     </span>
-    <span>Evidence from live Tavily search · sources are never invented</span>
+    <span className="font-medium text-slate-500">Evidence from live Tavily search · sources are never invented</span>
   </footer>
 );

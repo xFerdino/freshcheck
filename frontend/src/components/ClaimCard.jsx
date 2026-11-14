@@ -16,7 +16,7 @@ const hostOf = (url) => {
 
 const Sources = ({ claim }) =>
   claim.sources.length === 0 ? (
-    <p className="flex items-center gap-2 text-xs text-slate-500" data-testid={`no-sources-${claim.id}`}>
+    <p className="flex items-center gap-2 text-xs text-slate-500 font-medium" data-testid={`no-sources-${claim.id}`}>
       <Link2Off className="w-3.5 h-3.5" /> No sources found — nothing is invented.
     </p>
   ) : (
@@ -28,12 +28,12 @@ const Sources = ({ claim }) =>
             target="_blank"
             rel="noopener noreferrer"
             data-testid={`link-source-${claim.id}-${i}`}
-            className="group flex items-start gap-2 rounded-lg px-2.5 py-2 -mx-2.5 transition-colors hover:bg-white/[0.04]"
+            className="group flex items-start gap-2.5 rounded-xl px-3 py-2 -mx-2 transition-all hover:nm-flat-sm text-slate-800 hover:text-indigo-700"
           >
-            <ArrowUpRight className="w-3.5 h-3.5 mt-0.5 text-slate-500 group-hover:text-sky-400 shrink-0" />
+            <ArrowUpRight className="w-4 h-4 mt-0.5 text-slate-400 group-hover:text-indigo-600 shrink-0" />
             <span className="min-w-0">
-              <span className="block text-sm text-slate-200 group-hover:text-sky-300 truncate">{s.title}</span>
-              <span className="block font-mono text-xs text-slate-400">
+              <span className="block text-sm font-semibold truncate">{s.title}</span>
+              <span className="block font-mono text-xs text-slate-500">
                 {hostOf(s.url)}{formatDate(s.date) ? ` · ${formatDate(s.date)}` : ""}
               </span>
             </span>
@@ -83,33 +83,33 @@ export const ClaimCard = ({ claim, index, runId, generatedDate, onUpdateClaim, o
       animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
       transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.35, delay: index * 0.04 }}
       data-testid={`card-claim-${claim.id}`}
-      className="relative bg-slate-900/80 border border-white/[0.08] rounded-2xl p-5 sm:p-6 overflow-hidden"
+      className="relative nm-flat rounded-3xl p-6 sm:p-7 overflow-hidden transition-all"
     >
-      <span className="absolute left-0 top-0 bottom-0 w-1" style={{ background: style.color }} />
+      <span className="absolute left-0 top-0 bottom-0 w-1.5" style={{ background: style.color }} />
       <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0 space-y-2 flex-1">
+        <div className="min-w-0 space-y-2.5 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${style.badge}`} data-testid={`badge-verdict-${claim.id}`}>
-              {!v && <Loader2 className="w-3 h-3 animate-spin" />}{v || "Checking"}
+            <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold ${style.badge}`} data-testid={`badge-verdict-${claim.id}`}>
+              {!v && <Loader2 className="w-3.5 h-3.5 animate-spin" />}{v || "Checking"}
             </span>
-            <span className="text-xs font-medium text-slate-400 capitalize">{claim.category}</span>
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{claim.category}</span>
             {v && (
-              <div className="inline-flex items-center gap-1.5 ml-auto sm:ml-0">
+              <div className="inline-flex items-center gap-2 ml-auto sm:ml-0">
                 <button
                   type="button"
                   disabled={rechecking}
                   onClick={handleRecheck}
                   data-testid={`btn-recheck-claim-${claim.id}`}
-                  className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-indigo-300 rounded px-2 py-0.5 border border-white/10 hover:border-indigo-400/40 bg-slate-950/40 transition-colors disabled:opacity-50"
+                  className="nm-btn inline-flex items-center gap-1.5 text-xs text-slate-700 hover:text-slate-900 rounded-full px-3 py-1 font-semibold transition-all disabled:opacity-50"
                   title="Re-check this claim with live search"
                 >
-                  <RefreshCw className={`w-3 h-3 ${rechecking ? "animate-spin text-indigo-400" : ""}`} />
+                  <RefreshCw className={`w-3 h-3 ${rechecking ? "animate-spin text-indigo-600" : ""}`} />
                   <span>{rechecking ? "Re-checking…" : "Re-check"}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setEditingQuery((s) => !s)}
-                  className="text-xs text-slate-400 hover:text-slate-200 underline"
+                  className="text-xs text-slate-500 hover:text-indigo-600 underline font-medium"
                   title="Edit search query for re-checking"
                 >
                   {editingQuery ? "hide query" : "edit query"}
@@ -125,37 +125,37 @@ export const ClaimCard = ({ claim, index, runId, generatedDate, onUpdateClaim, o
                 onChange={(e) => setQueryInput(e.target.value)}
                 placeholder="Search query…"
                 data-testid={`input-recheck-query-${claim.id}`}
-                className="flex-1 bg-slate-950 border border-white/10 rounded px-2.5 py-1 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                className="flex-1 nm-inset-sm rounded-xl px-3 py-1.5 text-xs text-slate-800 font-sans focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
               <button
                 type="button"
                 disabled={rechecking}
                 onClick={handleRecheck}
-                className="bg-indigo-600 hover:bg-indigo-500 text-white rounded px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-50"
+                className="nm-btn-primary rounded-xl px-3 py-1.5 text-xs font-bold text-white transition-all disabled:opacity-50"
               >
                 Run
               </button>
             </div>
           )}
-          <h3 className="text-base sm:text-lg font-semibold text-slate-100 leading-snug">{claim.claim}</h3>
+          <h3 className="text-base sm:text-lg font-bold text-slate-900 leading-snug">{claim.claim}</h3>
         </div>
         {v && (
           <div className="text-right shrink-0" data-testid={`score-claim-${claim.id}`}>
-            <div className="text-3xl font-display font-extrabold" style={{ color: scoreColor(claim.freshness_score) }}>{claim.freshness_score}</div>
-            <div className="font-mono text-xs uppercase tracking-wider text-slate-400">fresh</div>
+            <div className="text-3xl font-display font-black" style={{ color: scoreColor(claim.freshness_score) }}>{claim.freshness_score}</div>
+            <div className="font-mono text-[11px] uppercase tracking-wider text-slate-500 font-bold">fresh</div>
           </div>
         )}
       </div>
       {v && (
-        <div className="mt-4 space-y-4">
+        <div className="mt-5 space-y-4">
           {claim.updated_fact && (
-            <div className={`space-y-2 rounded-xl border p-3.5 transition-opacity ${useFix ? "border-emerald-500/25 bg-emerald-500/[0.07]" : "border-white/10 bg-slate-950/40 opacity-60"}`} data-testid={`box-corrected-fact-${claim.id}`}>
+            <div className={`space-y-2 rounded-2xl p-4 transition-all ${useFix ? "nm-inset border border-emerald-500/30" : "nm-inset opacity-60 border border-slate-300"}`} data-testid={`box-corrected-fact-${claim.id}`}>
               <div className="flex items-start gap-3">
-                <RefreshCw className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
+                <RefreshCw className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2 mb-1">
-                    <p className="text-xs font-semibold text-emerald-400">Up-to-date fact</p>
-                    {!useFix && <span className="text-[11px] font-mono text-slate-400 uppercase">Ignored</span>}
+                    <p className="text-xs font-bold text-emerald-700 uppercase tracking-wide">Up-to-date fact</p>
+                    {!useFix && <span className="text-[11px] font-mono text-slate-500 uppercase font-semibold">Ignored</span>}
                   </div>
                   {editingFact ? (
                     <div className="space-y-2 pt-1">
@@ -164,7 +164,7 @@ export const ClaimCard = ({ claim, index, runId, generatedDate, onUpdateClaim, o
                         value={factInput}
                         onChange={(e) => setFactInput(e.target.value)}
                         data-testid={`input-edit-fact-${claim.id}`}
-                        className="w-full bg-slate-950 border border-emerald-500/40 rounded px-2.5 py-1 text-xs text-emerald-100 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                        className="w-full nm-inset-sm rounded-xl px-3 py-1.5 text-xs text-slate-900 font-sans focus:outline-none focus:ring-1 focus:ring-emerald-500"
                       />
                       <div className="flex gap-2">
                         <button
@@ -175,7 +175,7 @@ export const ClaimCard = ({ claim, index, runId, generatedDate, onUpdateClaim, o
                             toast.success("Fact updated");
                           }}
                           data-testid={`btn-save-fact-${claim.id}`}
-                          className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded px-2.5 py-1 text-xs font-semibold transition-colors"
+                          className="nm-btn-primary rounded-xl px-3 py-1 text-xs font-bold text-white transition-colors"
                         >
                           Save
                         </button>
@@ -185,18 +185,18 @@ export const ClaimCard = ({ claim, index, runId, generatedDate, onUpdateClaim, o
                             setFactInput(claim.updated_fact || "");
                             setEditingFact(false);
                           }}
-                          className="border border-white/10 text-slate-400 hover:text-slate-200 rounded px-2.5 py-1 text-xs transition-colors"
+                          className="nm-btn rounded-xl px-3 py-1 text-xs font-medium text-slate-600 transition-colors"
                         >
                           Cancel
                         </button>
                       </div>
                     </div>
                   ) : (
-                    <p className="text-sm text-emerald-100">{claim.updated_fact}</p>
+                    <p className="text-sm font-semibold text-slate-900 leading-snug">{claim.updated_fact}</p>
                   )}
                 </div>
               </div>
-              <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-white/[0.06]">
+              <div className="flex flex-wrap items-center gap-2.5 pt-2 border-t border-white/60">
                 <button
                   type="button"
                   onClick={() => {
@@ -205,10 +205,10 @@ export const ClaimCard = ({ claim, index, runId, generatedDate, onUpdateClaim, o
                     toast(nextUseFix ? "Fix included for rewrite" : "Fix ignored for rewrite");
                   }}
                   data-testid={`btn-toggle-fix-${claim.id}`}
-                  className={`inline-flex items-center gap-1 text-xs font-medium rounded-full px-2.5 py-0.5 border transition-colors ${
+                  className={`nm-pill inline-flex items-center gap-1.5 text-xs font-bold rounded-full px-3 py-1 transition-all ${
                     useFix
-                      ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30"
-                      : "bg-slate-900 text-slate-400 border-white/10 hover:text-slate-200"
+                      ? "text-emerald-800 bg-emerald-500/10 border-emerald-400/40"
+                      : "text-slate-500"
                   }`}
                 >
                   {useFix ? "✓ Use this fix" : "✕ Ignored"}
@@ -221,7 +221,7 @@ export const ClaimCard = ({ claim, index, runId, generatedDate, onUpdateClaim, o
                       setFactInput(claim.updated_fact || "");
                     }}
                     data-testid={`btn-edit-fact-${claim.id}`}
-                    className="text-xs text-slate-400 hover:text-slate-200 underline px-1"
+                    className="text-xs text-slate-500 hover:text-indigo-600 underline font-medium px-1"
                   >
                     Edit fact
                   </button>
@@ -229,8 +229,8 @@ export const ClaimCard = ({ claim, index, runId, generatedDate, onUpdateClaim, o
               </div>
             </div>
           )}
-          <p className="text-sm text-slate-300" data-testid={`reason-${claim.id}`}>{claim.reason}</p>
-          <div className="flex flex-wrap items-center gap-3">
+          <p className="text-sm text-slate-700 leading-relaxed" data-testid={`reason-${claim.id}`}>{claim.reason}</p>
+          <div className="flex flex-wrap items-center gap-3 pt-1">
             {claim.updated_fact && (
               <button
                 type="button"
@@ -240,9 +240,9 @@ export const ClaimCard = ({ claim, index, runId, generatedDate, onUpdateClaim, o
                   toast.success("Corrected fact copied");
                 }}
                 data-testid={`btn-copy-fix-${claim.id}`}
-                className="inline-flex items-center gap-1.5 text-xs text-emerald-300 hover:text-emerald-200"
+                className="nm-btn inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-800 hover:text-emerald-900 rounded-full px-3.5 py-1.5"
               >
-                <Copy className="w-3.5 h-3.5" /> Copy fix with citation
+                <Copy className="w-3.5 h-3.5 text-emerald-600" /> Copy fix with citation
               </button>
             )}
             {v && v !== "Current" && (
@@ -259,15 +259,15 @@ export const ClaimCard = ({ claim, index, runId, generatedDate, onUpdateClaim, o
                   toast.success("Marked as current");
                 }}
                 data-testid={`btn-mark-current-${claim.id}`}
-                className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-emerald-300 border border-white/10 hover:border-emerald-500/30 rounded px-2.5 py-0.5 transition-colors ml-auto"
+                className="nm-btn inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-emerald-700 rounded-full px-3 py-1.5 ml-auto"
                 title="Override: treat this claim as current and up to date"
               >
                 Mark as current
               </button>
             )}
           </div>
-          <div className="border-t border-white/[0.06] pt-3">
-            <p className="text-xs font-medium text-slate-400 mb-2">Sources</p>
+          <div className="border-t border-white/60 pt-3.5">
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Sources</p>
             <Sources claim={claim} />
           </div>
         </div>

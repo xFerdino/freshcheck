@@ -3,88 +3,216 @@
 @tailwind utilities;
 
 @layer base {
-    :root {
-        --background: 222 35% 7%;
-        --foreground: 210 20% 98%;
-        --card: 221 39% 11%;
-        --card-foreground: 210 20% 98%;
-        --popover: 221 39% 11%;
-        --popover-foreground: 210 20% 98%;
-        --primary: 239 84% 67%;
-        --primary-foreground: 0 0% 100%;
-        --secondary: 217 19% 18%;
-        --secondary-foreground: 210 20% 98%;
-        --muted: 217 19% 18%;
-        --muted-foreground: 218 11% 65%;
-        --accent: 217 19% 18%;
-        --accent-foreground: 210 20% 98%;
-        --destructive: 0 84% 60%;
-        --destructive-foreground: 0 0% 98%;
-        --border: 217 19% 18%;
-        --input: 217 19% 18%;
-        --ring: 239 84% 67%;
-        --radius: 0.75rem;
-        --verdict-current: #10B981;
-        --verdict-outdated: #EF4444;
-        --verdict-uncertain: #F59E0B;
-        --verdict-pending: #6366F1;
-        --gauge-track: #1F2937;
-        --gauge-text: #F9FAFB;
-    }
+  :root {
+    /* Neumorphic Material Palette */
+    --nm-bg: #e8ecf4;
+    --nm-surface: #e8ecf4;
+    --nm-surface-sunken: #e2e8f0;
+    --nm-shadow-dark: #c5cbd5;
+    --nm-shadow-light: #ffffff;
+    --nm-border: rgba(255, 255, 255, 0.7);
+
+    /* Text hierarchy on soft grey */
+    --nm-text-main: #0f172a;
+    --nm-text-body: #334155;
+    --nm-text-muted: #64748b;
+    --nm-text-subtle: #94a3b8;
+
+    /* Semantic tokens mapped for Tailwind */
+    --background: 216 28% 93%; /* #e8ecf4 */
+    --foreground: 222 47% 11%; /* #0f172a */
+    --card: 216 28% 93%;
+    --card-foreground: 222 47% 11%;
+    --popover: 216 28% 93%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 239 84% 60%; /* #4f46e5 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 214 20% 88%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 214 20% 88%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 214 20% 88%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 350 89% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 20% 84%;
+    --input: 214 20% 84%;
+    --ring: 239 84% 60%;
+    --radius: 1.25rem;
+
+    /* Verdict status colors (vibrant & high-contrast on light neumorphic substrate) */
+    --verdict-current: #059669;
+    --verdict-outdated: #e11d48;
+    --verdict-uncertain: #d97706;
+    --verdict-pending: #4f46e5;
+    --gauge-track: #d6dce7;
+    --gauge-text: #0f172a;
+  }
 }
 
 @layer base {
-    * { @apply border-border; }
-    body {
-        @apply bg-background text-foreground;
-        font-family: 'Inter', sans-serif;
-        background-color: #0B0F17;
-        -webkit-font-smoothing: antialiased;
-    }
-    h1, h2, h3, .font-display { font-family: 'Outfit', sans-serif; }
-    .font-mono { font-family: 'JetBrains Mono', monospace; }
-    ::selection { background: rgba(99, 102, 241, 0.4); }
-    button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, mark:focus-visible {
-        outline: 2px solid rgba(99, 102, 241, 0.9);
-        outline-offset: 2px;
-    }
+  * {
+    border-color: rgba(255, 255, 255, 0.6);
+  }
+  body {
+    background-color: var(--nm-bg);
+    color: var(--nm-text-body);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+  h1, h2, h3, .font-display {
+    font-family: 'Outfit', sans-serif;
+    color: var(--nm-text-main);
+  }
+  .font-mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+  ::selection {
+    background: rgba(99, 102, 241, 0.25);
+    color: #1e1b4b;
+  }
+  button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, mark:focus-visible {
+    outline: 2px solid #4f46e5;
+    outline-offset: 2px;
+  }
 }
 
-.grain::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    opacity: 0.035;
-    z-index: 0;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+/* =========================================================================
+   NEUMORPHISM (Soft UI) Utility Classes
+   Inspired by: https://design-styles.enlighten-media.net/pages/neumorphism/
+   ========================================================================= */
+
+/* Raised / Extruded Surfaces */
+.nm-flat {
+  background: var(--nm-surface);
+  box-shadow: 8px 8px 18px var(--nm-shadow-dark), -8px -8px 18px var(--nm-shadow-light);
+  border: 1px solid var(--nm-border);
 }
 
-.glow-orb {
-    position: fixed;
-    width: 520px;
-    height: 520px;
-    border-radius: 9999px;
-    filter: blur(120px);
-    opacity: 0.18;
-    pointer-events: none;
-    z-index: 0;
+.nm-flat-sm {
+  background: var(--nm-surface);
+  box-shadow: 4px 4px 10px var(--nm-shadow-dark), -4px -4px 10px var(--nm-shadow-light);
+  border: 1px solid var(--nm-border);
+}
+
+.nm-flat-lg {
+  background: var(--nm-surface);
+  box-shadow: 12px 12px 26px var(--nm-shadow-dark), -12px -12px 26px var(--nm-shadow-light);
+  border: 1px solid var(--nm-border);
+}
+
+/* Inset / Sunken Surfaces (Textareas, Inputs, Wells, Recessed Tracks) */
+.nm-inset {
+  background: var(--nm-surface);
+  box-shadow: inset 4px 4px 9px var(--nm-shadow-dark), inset -4px -4px 9px var(--nm-shadow-light);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.nm-inset-sm {
+  background: var(--nm-surface);
+  box-shadow: inset 2px 2px 5px var(--nm-shadow-dark), inset -2px -2px 5px var(--nm-shadow-light);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.nm-inset-deep {
+  background: var(--nm-surface);
+  box-shadow: inset 6px 6px 12px var(--nm-shadow-dark), inset -6px -6px 12px var(--nm-shadow-light);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Tactile Buttons */
+.nm-btn {
+  background: var(--nm-surface);
+  color: var(--nm-text-body);
+  box-shadow: 5px 5px 12px var(--nm-shadow-dark), -5px -5px 12px var(--nm-shadow-light);
+  border: 1px solid var(--nm-border);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.nm-btn:hover:not(:disabled) {
+  box-shadow: 7px 7px 16px var(--nm-shadow-dark), -7px -7px 16px var(--nm-shadow-light);
+  transform: translateY(-1px);
+  color: var(--nm-text-main);
+}
+
+.nm-btn:active:not(:disabled) {
+  box-shadow: inset 3px 3px 6px var(--nm-shadow-dark), inset -3px -3px 6px var(--nm-shadow-light);
+  transform: translateY(1px);
+}
+
+/* Primary Extruded Action Button */
+.nm-btn-primary {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  color: #ffffff;
+  box-shadow: 6px 6px 16px rgba(79, 70, 229, 0.35), -6px -6px 16px rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.nm-btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+  box-shadow: 8px 8px 20px rgba(79, 70, 229, 0.45), -8px -8px 20px rgba(255, 255, 255, 0.95);
+  transform: translateY(-1px);
+}
+
+.nm-btn-primary:active:not(:disabled) {
+  box-shadow: inset 3px 3px 6px rgba(0, 0, 0, 0.35), inset -3px -3px 6px rgba(255, 255, 255, 0.2);
+  transform: translateY(1px);
+}
+
+/* Danger / Fix Button */
+.nm-btn-danger {
+  background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+  color: #ffffff;
+  box-shadow: 6px 6px 16px rgba(225, 29, 72, 0.35), -6px -6px 16px rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.nm-btn-danger:hover:not(:disabled) {
+  background: linear-gradient(135deg, #e11d48 0%, #be123c 100%);
+  box-shadow: 8px 8px 20px rgba(225, 29, 72, 0.45), -8px -8px 20px rgba(255, 255, 255, 0.95);
+  transform: translateY(-1px);
+}
+
+.nm-btn-danger:active:not(:disabled) {
+  box-shadow: inset 3px 3px 6px rgba(0, 0, 0, 0.35), inset -3px -3px 6px rgba(255, 255, 255, 0.2);
+  transform: translateY(1px);
+}
+
+/* Tactile Pills / Chips */
+.nm-pill {
+  background: var(--nm-surface);
+  box-shadow: 3px 3px 7px var(--nm-shadow-dark), -3px -3px 7px var(--nm-shadow-light);
+  border: 1px solid var(--nm-border);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.nm-pill:hover:not(:disabled) {
+  box-shadow: 4px 4px 10px var(--nm-shadow-dark), -4px -4px 10px var(--nm-shadow-light);
+  transform: translateY(-1px);
+}
+
+.nm-pill:active:not(:disabled), .nm-pill-active {
+  box-shadow: inset 2px 2px 5px var(--nm-shadow-dark), inset -2px -2px 5px var(--nm-shadow-light);
+  transform: translateY(1px);
 }
 
 .claim-flash { animation: flash 1.2s ease-out; }
 @keyframes flash {
-    0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.7); }
-    100% { box-shadow: 0 0 0 14px rgba(99, 102, 241, 0); }
+  0% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.6); }
+  100% { box-shadow: 0 0 0 16px rgba(79, 70, 229, 0); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    *, ::before, ::after {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
-        scroll-behavior: auto !important;
-    }
-    .claim-flash {
-        animation: none !important;
-    }
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .claim-flash {
+    animation: none !important;
+  }
 }

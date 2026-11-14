@@ -44,7 +44,7 @@ const Btn = ({ children, ...props }) => (
   <button
     type="button"
     {...props}
-    className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-slate-950/60 px-4 py-2 text-sm text-slate-200 transition-colors hover:border-indigo-400/60 hover:bg-indigo-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
+    className="nm-btn inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs sm:text-sm font-semibold text-slate-700 hover:text-slate-900 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
   >
     {children}
   </button>
@@ -105,79 +105,77 @@ export const CorrectedAnswer = ({ runId, text, claims, summary, meta, corrected,
   };
 
   return (
-    <section id="fix-and-share" className="bg-slate-900/80 border border-white/[0.08] rounded-2xl p-5 sm:p-6 space-y-4" data-testid="corrected-answer-section">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <section id="fix-and-share" className="nm-flat rounded-3xl p-6 sm:p-8 space-y-5" data-testid="corrected-answer-section">
+      <div className="flex flex-wrap items-center justify-between gap-4 pb-2 border-b border-white/60">
         <div>
-          <h2 className="text-lg font-semibold text-slate-100">Fix &amp; share</h2>
-          <p className="text-sm text-slate-400">
+          <h2 className="text-xl font-bold font-display text-slate-900">Fix &amp; share</h2>
+          <p className="text-sm text-slate-600 mt-0.5 font-medium">
             {outdated ? `${outdated} outdated fact${outdated > 1 ? "s" : ""} can be fixed with citations.` : "No outdated facts to fix — export the report as is."}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2.5">
           <button
             type="button"
             onClick={generate}
             disabled={loading || !outdated}
             data-testid="btn-copy-corrected-answer"
-            className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-slate-950 transition-[background-color,transform] hover:bg-emerald-400 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed"
+            className="nm-btn-primary inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-xs sm:text-sm font-bold text-white shadow-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
             {corrected ? "Regenerate corrected answer" : "Generate corrected answer"}
           </button>
           <Btn onClick={handleCopyMarkdown} data-testid="btn-copy-markdown">
-            {copiedMarkdown ? <Check className="w-4 h-4 text-emerald-400" /> : <FileText className="w-4 h-4" />}
+            {copiedMarkdown ? <Check className="w-4 h-4 text-emerald-600" /> : <FileText className="w-4 h-4 text-indigo-600" />}
             <span>{copiedMarkdown ? "Copied" : "Copy Markdown"}</span>
           </Btn>
           <Btn onClick={download} data-testid="btn-download-markdown">
-            <Download className="w-4 h-4" /> Export .md
+            <Download className="w-4 h-4 text-indigo-600" /> Export .md
           </Btn>
         </div>
       </div>
       {corrected && (
-        <div className="rounded-xl border border-emerald-500/25 bg-slate-950/70 p-4 space-y-3" data-testid="corrected-answer-output">
+        <div className="nm-inset rounded-2xl p-5 sm:p-6 space-y-4" data-testid="corrected-answer-output">
           <div className="flex items-center justify-between">
-            <span className="font-mono text-xs uppercase tracking-wider text-emerald-400 font-medium">Corrected answer</span>
+            <span className="font-mono text-xs uppercase tracking-wider text-emerald-700 font-bold">Corrected answer</span>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => setShowDiff((s) => !s)}
                 data-testid="btn-toggle-diff"
-                className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium border transition-colors ${
-                  showDiff ? "bg-indigo-500/20 text-indigo-300 border-indigo-400/40" : "bg-slate-900 border-white/10 text-slate-400 hover:text-slate-200"
+                className={`nm-pill inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition-all ${
+                  showDiff ? "text-indigo-800 bg-indigo-50 border-indigo-400" : "text-slate-700"
                 }`}
               >
-                <GitCompare className="w-3.5 h-3.5" />
+                <GitCompare className="w-3.5 h-3.5 text-indigo-600" />
                 <span>{showDiff ? "Hide changes" : "Show changes"}</span>
               </button>
               <button
                 type="button"
                 onClick={handleCopyCorrected}
                 data-testid="btn-copy-corrected-again"
-                className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium border transition-colors ${
-                  copiedCorrected
-                    ? "bg-emerald-500/20 text-emerald-300 border-emerald-400/40"
-                    : "bg-slate-900 border-white/10 text-slate-300 hover:text-white"
+                className={`nm-pill inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition-all ${
+                  copiedCorrected ? "text-emerald-800 bg-emerald-50 border-emerald-400" : "text-slate-700"
                 }`}
                 title="Copy corrected text"
               >
-                {copiedCorrected ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                {copiedCorrected ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-slate-500" />}
                 <span>{copiedCorrected ? "Copied" : "Copy"}</span>
               </button>
             </div>
           </div>
           {showDiff ? (
-            <div className="text-sm sm:text-base leading-relaxed text-slate-200 whitespace-pre-wrap font-sans p-3 bg-slate-900/60 rounded-lg border border-white/[0.06]" data-testid="corrected-answer-diff">
+            <div className="nm-inset-sm text-sm sm:text-base leading-relaxed text-slate-900 whitespace-pre-wrap font-sans p-4 rounded-xl bg-[#e2e8f0]" data-testid="corrected-answer-diff">
               {diffOps.map((op, i) => {
                 if (op.type === "del") {
                   return (
-                    <del key={i} className="line-through text-rose-300 bg-rose-500/20 px-0.5 rounded mx-0.5">
+                    <del key={i} className="line-through text-rose-800 bg-rose-500/15 px-1 py-0.5 rounded mx-0.5 font-medium">
                       {op.text}
                     </del>
                   );
                 }
                 if (op.type === "add") {
                   return (
-                    <ins key={i} className="text-emerald-300 bg-emerald-500/20 px-0.5 rounded mx-0.5 underline decoration-emerald-400">
+                    <ins key={i} className="text-emerald-900 bg-emerald-500/15 px-1 py-0.5 rounded mx-0.5 font-medium underline decoration-emerald-600">
                       {op.text}
                     </ins>
                   );
@@ -186,14 +184,16 @@ export const CorrectedAnswer = ({ runId, text, claims, summary, meta, corrected,
               })}
             </div>
           ) : (
-            <p className="text-sm sm:text-base leading-relaxed text-slate-200 whitespace-pre-wrap" data-testid="corrected-answer-text">{formattedRewritten || corrected.rewritten}</p>
+            <p className="text-sm sm:text-base leading-relaxed text-slate-900 whitespace-pre-wrap font-medium" data-testid="corrected-answer-text">
+              {formattedRewritten || corrected.rewritten}
+            </p>
           )}
           {corrected.sources.length > 0 && (
-            <ol className="space-y-1 border-t border-white/[0.06] pt-3">
+            <ol className="space-y-1.5 border-t border-white/60 pt-3">
               {corrected.sources.map((s) => (
-                <li key={s.n} className="text-xs text-slate-400">
-                  <span className="font-mono text-slate-500">[{s.n}]</span>{" "}
-                  <a href={s.url} target="_blank" rel="noopener noreferrer" className="hover:text-sky-300 underline decoration-white/10" data-testid={`corrected-source-${s.n}`}>{s.title}</a>
+                <li key={s.n} className="text-xs text-slate-600 font-medium">
+                  <span className="font-mono text-indigo-700 font-bold">[{s.n}]</span>{" "}
+                  <a href={s.url} target="_blank" rel="noopener noreferrer" className="hover:text-indigo-600 underline font-semibold" data-testid={`corrected-source-${s.n}`}>{s.title}</a>
                 </li>
               ))}
             </ol>

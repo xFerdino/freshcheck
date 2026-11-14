@@ -22,16 +22,22 @@ const VERDICT_GLYPHS = {
 export const HighlightedAnswer = ({ text, claims }) => {
   const segments = buildSegments(text, claims);
   return (
-    <div className="md:col-span-7 lg:col-span-8 bg-slate-900/80 border border-white/[0.08] rounded-2xl p-6 flex flex-col gap-4" data-testid="panel-highlighted-answer">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold text-slate-100">Original answer</h2>
-        <div className="flex flex-wrap gap-3 text-xs text-slate-400">
-          <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded-sm bg-emerald-500/20 text-emerald-400 font-bold inline-flex items-center justify-center text-xs">✓</span>Current</span>
-          <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded-sm bg-rose-500/20 text-rose-400 font-bold inline-flex items-center justify-center text-xs">✕</span>Outdated</span>
-          <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded-sm bg-amber-500/20 text-amber-400 font-bold inline-flex items-center justify-center text-xs">?</span>Uncertain</span>
+    <div className="md:col-span-7 lg:col-span-8 nm-flat rounded-3xl p-6 sm:p-7 flex flex-col gap-4" data-testid="panel-highlighted-answer">
+      <div className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-white/60">
+        <h2 className="text-xl font-bold font-display text-slate-900">Original answer</h2>
+        <div className="flex flex-wrap gap-2.5 text-xs font-semibold">
+          <span className="nm-pill inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-emerald-800 bg-emerald-500/10">
+            <span className="font-bold">✓</span> Current
+          </span>
+          <span className="nm-pill inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-rose-800 bg-rose-500/10">
+            <span className="font-bold">✕</span> Outdated
+          </span>
+          <span className="nm-pill inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-amber-800 bg-amber-500/10">
+            <span className="font-bold">?</span> Uncertain
+          </span>
         </div>
       </div>
-      <p className="text-sm sm:text-base leading-8 text-slate-300 whitespace-pre-wrap">
+      <p className="text-sm sm:text-base leading-8 text-slate-800 whitespace-pre-wrap">
         {segments.map((s, i) => {
           if (!s.claim) return <span key={i}>{s.text}</span>;
           const verdict = s.claim.verdict || "Pending";
@@ -51,9 +57,9 @@ export const HighlightedAnswer = ({ text, claims }) => {
               title={`${verdict}: ${s.claim.reason || s.claim.claim}`}
               aria-label={`${verdict} claim: ${s.claim.claim}. Press Enter to view card.`}
               data-testid={`claim-highlight-${s.claim.id}`}
-              className={`px-1 py-0.5 rounded cursor-pointer transition-all inline-block align-baseline focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 ${VERDICT_STYLES[verdict].highlight}`}
+              className={`px-1.5 py-0.5 rounded-lg cursor-pointer transition-all inline-block align-baseline font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${VERDICT_STYLES[verdict].highlight}`}
             >
-              <span aria-hidden="true" className="font-mono text-xs font-bold mr-1 opacity-80">{glyph}</span>
+              <span aria-hidden="true" className="font-mono text-xs font-bold mr-1 opacity-90">{glyph}</span>
               <span>{s.text}</span>
             </mark>
           );

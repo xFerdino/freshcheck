@@ -5,9 +5,11 @@ const CharCounter = ({ length }) => {
   const over = length > MAX_CHARS;
   const near = !over && length >= MAX_CHARS * 0.9;
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 -mt-3 text-xs font-mono">
-      <span className="text-rose-400" data-testid="error-too-long">{over ? "Answer is too long (max 8,000 characters)" : ""}</span>
-      <span data-testid="char-counter" className={over ? "text-rose-400" : near ? "text-amber-400" : "text-slate-500"}>
+    <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-mono pt-1">
+      <span className="text-rose-600 font-semibold" data-testid="error-too-long">
+        {over ? "Answer is too long (max 8,000 characters)" : ""}
+      </span>
+      <span data-testid="char-counter" className={over ? "text-rose-600 font-bold" : near ? "text-amber-600 font-bold" : "text-slate-500"}>
         {length.toLocaleString("en-US")} / {MAX_CHARS.toLocaleString("en-US")}
       </span>
     </div>
@@ -27,9 +29,9 @@ export const InputPanel = ({ answer, setAnswer, date, setDate, onCheck, onReset,
   const isDisabled = running || answer.trim().length < 10 || answer.length > MAX_CHARS;
 
   return (
-    <section className="relative bg-slate-900/70 backdrop-blur-xl border border-white/[0.08] rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4" data-testid="input-panel">
+    <section className="relative nm-flat rounded-3xl p-6 sm:p-8 space-y-5" data-testid="input-panel">
       <div className="space-y-2">
-        <label htmlFor="input-answer-textarea" className="block text-sm font-medium text-slate-200">
+        <label htmlFor="input-answer-textarea" className="block text-sm font-bold text-slate-800 tracking-tight">
           AI answer to check
         </label>
         <textarea
@@ -40,53 +42,53 @@ export const InputPanel = ({ answer, setAnswer, date, setDate, onCheck, onReset,
           disabled={running}
           placeholder="Paste an AI-generated answer here…"
           data-testid="input-answer-textarea"
-          className="w-full bg-slate-950/80 border border-white/[0.08] rounded-xl p-4 text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/70 focus:border-transparent text-sm sm:text-base leading-relaxed resize-y min-h-[160px] transition-shadow"
+          className="w-full nm-inset rounded-2xl p-5 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-sm sm:text-base leading-relaxed resize-y min-h-[170px] transition-all"
         />
         <CharCounter length={answer.length} />
       </div>
 
-      <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-400">
-        <span className="flex items-center gap-1 text-slate-400 font-medium">
-          <Sparkles className="w-3.5 h-3.5 text-indigo-400" /> or try:
+      <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600 pt-1">
+        <span className="flex items-center gap-1.5 text-slate-600 font-semibold">
+          <Sparkles className="w-3.5 h-3.5 text-indigo-600" /> Examples:
         </span>
-        {EXAMPLES.map((ex, i) => (
-          <span key={ex.id} className="inline-flex items-center">
-            {i > 0 && <span className="text-slate-600 mx-1.5">·</span>}
+        <div className="flex flex-wrap items-center gap-2">
+          {EXAMPLES.map((ex) => (
             <button
+              key={ex.id}
               type="button"
               disabled={running}
               onClick={() => setAnswer(ex.text)}
               data-testid={`chip-example-${ex.id}`}
-              className="text-indigo-400 hover:text-indigo-300 hover:underline disabled:opacity-40 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 rounded px-1"
+              className="nm-pill px-3 py-1.5 rounded-full text-xs font-semibold text-slate-700 hover:text-indigo-600 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
             >
               {ex.title}
             </button>
-          </span>
-        ))}
+          ))}
+        </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-end gap-4 sm:justify-between pt-1">
-        <label className="flex flex-col gap-1 text-xs text-slate-300 max-w-sm">
-          <span className="flex items-center gap-1.5 font-medium text-slate-200 text-sm">
-            <CalendarDays className="w-4 h-4 text-indigo-400" /> Answer generated on (optional)
+      <div className="flex flex-col sm:flex-row sm:items-end gap-5 sm:justify-between pt-2 border-t border-white/60">
+        <label className="flex flex-col gap-1 text-xs text-slate-600 max-w-sm">
+          <span className="flex items-center gap-1.5 font-bold text-slate-800 text-sm">
+            <CalendarDays className="w-4 h-4 text-indigo-600" /> Answer generated on (optional)
           </span>
-          <span className="text-xs text-slate-400">When was this answer written? Helps judge what changed since.</span>
+          <span className="text-xs text-slate-500">When was this answer written? Helps judge what changed since.</span>
           <input
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
             disabled={running}
             data-testid="input-date"
-            className="bg-slate-950/80 border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-slate-200 normal-case tracking-normal font-sans focus:outline-none focus:ring-2 focus:ring-indigo-500/70 [color-scheme:dark] mt-0.5"
+            className="nm-inset-sm rounded-xl px-3.5 py-2 text-sm text-slate-800 font-sans focus:outline-none focus:ring-2 focus:ring-indigo-500/50 [color-scheme:light] mt-1"
           />
         </label>
-        <div className="flex flex-col items-end gap-1.5">
+        <div className="flex flex-col items-end gap-2">
           <div className="flex gap-3 w-full sm:w-auto">
             <button
               type="button"
               onClick={running ? onCancel : onReset}
               data-testid={running ? "btn-cancel" : "btn-reset"}
-              className="flex items-center gap-2 rounded-full border border-white/10 px-4 py-2.5 text-sm text-slate-300 transition-colors hover:bg-white/5"
+              className="nm-btn flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-slate-700 hover:text-slate-900 transition-all"
             >
               {running ? <X className="w-4 h-4" /> : <RotateCcw className="w-4 h-4" />} {running ? "Cancel" : "Reset"}
             </button>
@@ -95,15 +97,15 @@ export const InputPanel = ({ answer, setAnswer, date, setDate, onCheck, onReset,
               onClick={onCheck}
               disabled={isDisabled}
               data-testid="btn-check-freshness"
-              className="flex flex-1 sm:flex-none items-center justify-center gap-2 rounded-full bg-indigo-500 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition-[background-color,transform] hover:bg-indigo-400 active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="nm-btn-primary flex flex-1 sm:flex-none items-center justify-center gap-2 rounded-full px-7 py-2.5 text-sm font-bold text-white shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <ScanSearch className="w-4 h-4" />}
               <span>{running ? "Checking…" : "Check freshness"}</span>
-              {!running && <span className="hidden sm:inline-block text-xs font-mono opacity-80 bg-indigo-600/70 border border-white/15 rounded px-1.5 py-0.5 ml-1">⌘↵</span>}
+              {!running && <span className="hidden sm:inline-block text-[11px] font-mono opacity-90 bg-indigo-700/50 rounded-md px-1.5 py-0.5 ml-1">⌘↵</span>}
             </button>
           </div>
           {answer.trim().length < 10 && !running && (
-            <span className="text-xs text-slate-400 text-right pr-2" data-testid="hint-disabled">Paste at least 10 characters</span>
+            <span className="text-xs text-slate-500 text-right pr-2" data-testid="hint-disabled">Paste at least 10 characters</span>
           )}
         </div>
       </div>
