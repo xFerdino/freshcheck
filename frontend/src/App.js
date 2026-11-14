@@ -12,20 +12,25 @@ import { RunDetails } from "./components/RunDetails";
 import { CorrectedAnswer } from "./components/CorrectedAnswer";
 import { EmptyState, ErrorState, Footer } from "./components/States";
 
-const Header = () => (
-  <header className="space-y-4 pt-4">
+const Header = ({ collapsed }) => (
+  <header className="space-y-2 pt-2">
     <div className="flex items-center gap-2.5">
-      <span className="grid place-items-center w-9 h-9 rounded-xl bg-indigo-500/15 border border-indigo-400/30">
-        <Radar className="w-5 h-5 text-indigo-300" />
+      <span className="grid place-items-center w-8 h-8 rounded-xl bg-indigo-500/15 border border-indigo-400/30">
+        <Radar className="w-4 h-4 text-indigo-300" />
       </span>
       <span className="font-display text-xl font-bold tracking-tight" data-testid="brand-name">FreshCheck</span>
+      <span className="hidden sm:inline text-xs text-slate-500 font-mono">stale-answer detector</span>
     </div>
-    <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-50 max-w-4xl leading-[1.05]" data-testid="hero-tagline">
-      Catch <span className="text-rose-400">stale</span> AI answers before your users do.
-    </h1>
-    <p className="text-base md:text-lg text-slate-400 max-w-2xl">
-      Paste any AI-generated answer. FreshCheck pulls out every checkable fact, verifies it against the live web, and hands you a corrected, cited version.
-    </p>
+    {!collapsed && (
+      <>
+        <h1 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-50 max-w-3xl leading-snug" data-testid="hero-tagline">
+          Catch <span className="text-rose-400">stale</span> AI answers before your users do.
+        </h1>
+        <p className="text-sm sm:text-base text-slate-400 max-w-2xl">
+          Paste any AI-generated answer. FreshCheck pulls out every checkable fact, verifies it against the live web, and hands you a corrected, cited version.
+        </p>
+      </>
+    )}
   </header>
 );
 
@@ -33,6 +38,7 @@ export default function App() {
   const [answer, setAnswer] = useState("");
   const [date, setDate] = useState("");
   const [running, setRunning] = useState(false);
+  const [hasRun, setHasRun] = useState(false);
   const [stage, setStage] = useState(null);
   const [claims, setClaims] = useState([]);
   const [summary, setSummary] = useState(null);
@@ -71,6 +77,7 @@ export default function App() {
 
   const onCheck = async () => {
     if (answer.length > MAX_CHARS) { toast.error("Answer is too long (max 8,000 characters)"); return; }
+    setHasRun(true);
     clearResults(); setRunning(true); setStage("extracting"); setCheckedText(answer);
     abortRef.current = new AbortController();
     try {
@@ -107,7 +114,7 @@ export default function App() {
       <div className="glow-orb bg-rose-600 top-1/2 -right-60" />
       <Toaster theme="dark" position="top-center" />
       <main className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8">
-        <Header />
+        <Header collapsed={hasRun} />
         <InputPanel answer={answer} setAnswer={setAnswer} date={date} setDate={setDate} onCheck={onCheck} onReset={onReset} onCancel={onCancel} running={running} />
         {running && <LiveProgress stage={stage} claims={claims} />}
         {error && !running && <ErrorState message={error} onRetry={onCheck} />}

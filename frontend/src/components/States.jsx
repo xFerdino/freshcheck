@@ -7,18 +7,27 @@ const STEPS = [
 ];
 
 export const EmptyState = () => (
-  <section className="grid grid-cols-1 sm:grid-cols-3 gap-4" data-testid="empty-state">
-    {STEPS.map(({ icon: Icon, title, text }, i) => (
-      <div key={title} className="rounded-2xl border border-dashed border-white/10 p-5 space-y-2">
-        <div className="flex items-center gap-2">
-          <span className="font-mono text-xs text-slate-600">0{i + 1}</span>
-          <Icon className="w-4 h-4 text-indigo-300" />
-          <h3 className="font-display font-semibold text-slate-200">{title}</h3>
+  <details className="group rounded-xl border border-white/[0.08] bg-slate-900/40 px-4 py-3 text-xs text-slate-400" data-testid="empty-state">
+    <summary className="cursor-pointer font-medium text-slate-300 hover:text-slate-100 flex items-center justify-between select-none list-none">
+      <span className="flex items-center gap-2">
+        <ListChecks className="w-3.5 h-3.5 text-indigo-400" />
+        How FreshCheck works
+      </span>
+      <span className="text-slate-500 group-open:rotate-180 transition-transform">▾</span>
+    </summary>
+    <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-4 pt-3 border-t border-white/[0.06]">
+      {STEPS.map(({ icon: Icon, title, text }, i) => (
+        <div key={title} className="space-y-1">
+          <div className="flex items-center gap-1.5 font-medium text-slate-200">
+            <span className="font-mono text-indigo-400 text-xs">0{i + 1}</span>
+            <Icon className="w-3.5 h-3.5 text-indigo-300" />
+            <span>{title}</span>
+          </div>
+          <p className="text-slate-400 leading-relaxed">{text}</p>
         </div>
-        <p className="text-sm text-slate-500">{text}</p>
-      </div>
-    ))}
-  </section>
+      ))}
+    </div>
+  </details>
 );
 
 export const ErrorState = ({ message, onRetry }) => (
