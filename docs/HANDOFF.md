@@ -35,3 +35,8 @@ Skip Phase 2 growth bets before the deadline.
 - Do not use Emergent's Publish button (cost). Hosting later on a clearance43.online subdomain, self-hosted.
 - No real keys in the repo, no invented metrics in README or pitch.
 - Keep `yarn build` and `pytest -m "not live"` green.
+
+## VERDICT-1 live check (14 Nov 2026, 17:07 Warsaw)
+- /api/config: route bifrost, extract lightning:free, verdict nemotron-3.5-super-vl:free. 56 offline tests pass.
+- Tech versions run: all 4 claims Outdated (Python no longer shows Current; bug fixed). Verdict calls 1.2-2.4s.
+- Remaining accuracy gaps: Python correction says 3.15 is "latest stable" while its own source calls 3.15 a release candidate (should say 3.14). Next.js correction says 14 is current, which is itself stale. Likely cause: search query/sources pick older pages. Next idea: add "latest {current year}" to version search queries and tell the verdict prompt to prefer the newest stable (non-RC) version in sources.
