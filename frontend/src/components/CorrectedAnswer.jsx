@@ -1,7 +1,44 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { toast } from "sonner";
-import { Copy, Download, FileText, Loader2, Wand2 } from "lucide-react";
+import { Copy, Download, FileText, GitCompare, Loader2, Wand2 } from "lucide-react";
 import { buildMarkdown, copyText, correctedMarkdown, rewriteAnswer } from "../lib/freshcheck";
+
+function formatCitations(str) {
+  if (!str) return "";
+  return str.replace(/([^\s[])(\[\d+\])/g, "$1 $2").replace(/(\[\d+\])(\[\d+\])/g, "$1 $2");
+}
+
+function computeWordDiff(origText, newText) {
+  const words1 = (origText || "").match(/\S+|\s+/g) || [];
+  const words2 = (newText || "").match(/\S+|\s+/g) || [];
+  const n = words1.length;
+  const m = words2.length;
+  const dp = Array.from({ length: n + 1 }, () => new Uint16Array(m + 1));
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < m; j++) {
+      if (words1[i] === words2[j]) {
+        dp[i + 1][j + 1] = dp[i][j] + 1;
+      } else {
+        dp[i + 1][j + 1] = Math.max(dp[i + 1][j], dp[i][j + 1]);
+      }
+    }
+  }
+  let i = n, j = m;
+  const ops = [];
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && words1[i - 1] === words2[j - 1]) {
+      ops.push({ type: "same", text: words1[i - 1] });
+      i--; j--;
+    } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+      ops.push({ type: "add", text: words2[j - 1] });
+      j--;
+    } else if (i > 0 && (j === 0 || dp[i][j - 1] < dp[i - 1][j])) {
+      ops.push({ type: "del", text: words1[i - 1] });
+      i--;
+    }
+  }
+  return ops.reverse();
+}
 
 const Btn = ({ children, ...props }) => (
   <button
@@ -15,7 +52,11 @@ const Btn = ({ children, ...props }) => (
 
 export const CorrectedAnswer = ({ runId, text, claims, summary, meta, corrected, setCorrected, onLog }) => {
   const [loading, setLoading] = useState(false);
+  const [showDiff, setShowDiff] = useState(false);
   const outdated = summary?.counts?.Outdated ?? 0;
+
+  const formattedRewritten = useMemo(() => formatCitations(corrected?.rewritten), [corrected?.rewritten]);
+  const diffOps = useMemo(() => (showDiff && corrected ? computeWordDiff(text, formattedRewritten) : []), [showDiff, text, formattedRewritten, corrected]);
 
   const generate = async () => {
     setLoading(true);
@@ -71,12 +112,47 @@ export const CorrectedAnswer = ({ runId, text, claims, summary, meta, corrected,
       {corrected && (
         <div className="rounded-xl border border-emerald-500/25 bg-slate-950/70 p-4 space-y-3" data-testid="corrected-answer-output">
           <div className="flex items-center justify-between">
-            <span className="font-mono text-[10px] uppercase tracking-widest text-emerald-400/80">Corrected answer</span>
-            <button type="button" onClick={async () => { await copyText(correctedMarkdown(corrected)); toast.success("Copied"); }} data-testid="btn-copy-corrected-again" className="text-slate-400 hover:text-slate-100">
-              <Copy className="w-4 h-4" />
-            </button>
+            <span className="font-mono text-xs uppercase tracking-wider text-emerald-400 font-medium">Corrected answer</span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowDiff((s) => !s)}
+                data-testid="btn-toggle-diff"
+                className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium border transition-colors ${
+                  showDiff ? "bg-indigo-500/20 text-indigo-300 border-indigo-400/40" : "bg-slate-900 border-white/10 text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <GitCompare className="w-3.5 h-3.5" />
+                <span>{showDiff ? "Hide changes" : "Show changes"}</span>
+              </button>
+              <button type="button" onClick={async () => { await copyText(correctedMarkdown(corrected)); toast.success("Copied"); }} data-testid="btn-copy-corrected-again" className="text-slate-400 hover:text-slate-100 p-1" title="Copy corrected text">
+                <Copy className="w-4 h-4" />
+              </button>
+            </div>
           </div>
-          <p className="text-sm sm:text-base leading-relaxed text-slate-200 whitespace-pre-wrap" data-testid="corrected-answer-text">{corrected.rewritten}</p>
+          {showDiff ? (
+            <div className="text-sm sm:text-base leading-relaxed text-slate-200 whitespace-pre-wrap font-sans p-3 bg-slate-900/60 rounded-lg border border-white/[0.06]" data-testid="corrected-answer-diff">
+              {diffOps.map((op, i) => {
+                if (op.type === "del") {
+                  return (
+                    <del key={i} className="line-through text-rose-300 bg-rose-500/20 px-0.5 rounded mx-0.5">
+                      {op.text}
+                    </del>
+                  );
+                }
+                if (op.type === "add") {
+                  return (
+                    <ins key={i} className="text-emerald-300 bg-emerald-500/20 px-0.5 rounded mx-0.5 underline decoration-emerald-400">
+                      {op.text}
+                    </ins>
+                  );
+                }
+                return <span key={i}>{op.text}</span>;
+              })}
+            </div>
+          ) : (
+            <p className="text-sm sm:text-base leading-relaxed text-slate-200 whitespace-pre-wrap" data-testid="corrected-answer-text">{formattedRewritten || corrected.rewritten}</p>
+          )}
           {corrected.sources.length > 0 && (
             <ol className="space-y-1 border-t border-white/[0.06] pt-3">
               {corrected.sources.map((s) => (
