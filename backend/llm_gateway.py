@@ -59,11 +59,14 @@ def parse_json(text: str) -> dict:
 
 
 async def _call_bifrost(model: str, system: str, prompt: str):
-    resp = await _bifrost_client().chat.completions.create(
-        model=model,
-        messages=[{"role": "system", "content": system}, {"role": "user", "content": prompt}],
-        response_format={"type": "json_object"},
-    )
+    kwargs = {
+        "model": model,
+        "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}],
+        "response_format": {"type": "json_object"},
+    }
+    if "openrouter" in model or "nemotron" in model or os.environ.get("OPENROUTER_API_KEY"):
+        kwargs["extra_body"] = {"reasoning": {"effort": "none"}}
+    resp = await _bifrost_client().chat.completions.create(**kwargs)
     u = resp.usage
     return resp.choices[0].message.content, (u.prompt_tokens if u else 0), (u.completion_tokens if u else 0)
 
