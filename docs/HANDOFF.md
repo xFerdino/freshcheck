@@ -48,3 +48,8 @@ Skip Phase 2 growth bets before the deadline.
 - Pre-release guard: `finalize_verdict` checks if updated_fact asserts a version only described in sources as RC/beta/alpha/preview, flipping to Uncertain with an honest reason.
 - Offline tests: 62 passed in backend (`cd backend && pytest -m "not live"`).
 - Live Tech versions run: Python -> 3.15.2 (verified stable in Nov 2026), React -> 19, Next.js -> 16 (no longer stale 14), Node.js -> 24 LTS. All 4 claims accurately flagged Outdated.
+
+## FRESH-1 live check (14 Nov 2026, 17:27 Warsaw)
+- Queries now read "latest stable <tech> official release November 2026".
+- Tech versions run: Python 3.15 (sources: 3.15.0 released 9 Oct 2026), React 19, Next.js 16, Node.js 24 Active LTS. All 4 Outdated with correct, sourced corrections.
+- 62 offline unit tests pass (the 4 API test files need `requests` and a live server, so they are skipped locally).
